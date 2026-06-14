@@ -21,8 +21,8 @@ post-training support.
 - `recipe/qwen3_tts/wer_sim_reward.py`
   - Default WER + reference-audio similarity reward hook.
   - Uses edit-distance text score plus MFCC cosine similarity by default.
-  - Defaults to `REWARD_ASR_BACKEND=none` to avoid network downloads; enable
-    local ASR explicitly for WER scoring.
+  - Generic reward defaults to `REWARD_ASR_BACKEND=none`; ready-to-run scripts
+    point it at `/opt/data/private/jsj/models/openai-whisper-small`.
 - `recipe/qwen3_tts/example_reward.py`
   - Simple audio-validity example reward.
 - `recipe/qwen3_tts/smoke_reward.py`
@@ -38,8 +38,8 @@ post-training support.
     `MAX_STEPS`, `POLICY_EPOCHS`, and clip parameters.
 - `recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh`
   - Ready-to-run GRPO smoke script.
-  - Defaults to `MAX_STEPS=10`, `GROUP_SIZE=8`, `PROMPT_BATCH_SIZE=2`,
-    `ATTN_IMPLEMENTATION=eager`.
+  - Defaults to `MAX_STEPS=10`, `GROUP_SIZE=8`, `PROMPT_BATCH_SIZE=4`,
+    `ROLLOUT_DEVICES=cuda:0,cuda:1,cuda:2,cuda:3`, `ATTN_IMPLEMENTATION=eager`.
 - `recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager_full.sh`
   - Ready-to-run full-GRPO script.
   - Defaults to `MAX_STEPS=-1`, so it runs the configured full epoch.

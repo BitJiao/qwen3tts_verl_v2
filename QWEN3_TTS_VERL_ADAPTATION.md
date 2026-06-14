@@ -84,7 +84,7 @@ Common overrides:
 ```bash
 TRAIN_JSONL=/path/to/rl.jsonl \
 OUTPUT_DIR=/path/to/output \
-ROLLOUT_DEVICES=cuda:0,cuda:1 \
+ROLLOUT_DEVICES=cuda:0,cuda:1,cuda:2,cuda:3 \
 REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
 REWARD_WER_WEIGHT=0.6 \
 REWARD_SIM_WEIGHT=0.4 \
@@ -93,9 +93,9 @@ MAX_STEPS=-1 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
-The default reward does not download ASR models. Set
-`REWARD_ASR_BACKEND=transformers` or `REWARD_ASR_BACKEND=faster_whisper` plus
-`ASR_MODEL_PATH=/path/to/local/model` to enable WER scoring.
+The ready-to-run scripts default to the local ASR model at
+`/opt/data/private/jsj/models/openai-whisper-small`. Set
+`REWARD_ASR_BACKEND=none` to disable WER scoring.
 
 `ATTN_IMPLEMENTATION=eager` is the default in the ready-to-run RL scripts
 because the current stack can fail in speech-tokenizer decode with `sdpa`.
