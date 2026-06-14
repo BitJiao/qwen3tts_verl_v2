@@ -102,26 +102,36 @@ def _get_asr():
     return _ASR
 
 
-def _transcribe(wav: np.ndarray, sample_rate: int, language: str | None = None) -> str:
+def _transcribe_many(wavs: list[np.ndarray], sample_rate: int, language: str | None = None) -> list[str]:
     asr = _get_asr()
     if not asr:
-        return ""
+        return [""] * len(wavs)
 
-    wav16 = _prepare_wav(wav, sample_rate, target_sr=16000)
+    wavs16 = [_prepare_wav(wav, sample_rate, target_sr=16000) for wav in wavs]
     backend, model = asr
     try:
         if backend == "faster_whisper":
-            segments, _ = model.transcribe(wav16, language=None if language in {None, "Auto"} else language)
-            return "".join(segment.text for segment in segments)
+            texts = []
+            for wav16 in wavs16:
+                segments, _ = model.transcribe(wav16, language=None if language in {None, "Auto"} else language)
+                texts.append("".join(segment.text for segment in segments))
+            return texts
 
         generate_kwargs = {}
         if language and language != "Auto":
             generate_kwargs["language"] = language
-        result = model({"array": wav16, "sampling_rate": 16000}, generate_kwargs=generate_kwargs)
-        return str(result.get("text", ""))
+        inputs = [{"array": wav16, "sampling_rate": 16000} for wav16 in wavs16]
+        results = model(inputs, generate_kwargs=generate_kwargs, batch_size=int(os.environ.get("ASR_BATCH_SIZE", "8")))
+        if isinstance(results, dict):
+            results = [results]
+        return [str(result.get("text", "")) for result in results]
     except Exception as exc:
         _warn_once(f"ASR disabled because transcription failed: {exc}")
-        return ""
+        return [""] * len(wavs)
+
+
+def _transcribe(wav: np.ndarray, sample_rate: int, language: str | None = None) -> str:
+    return _transcribe_many([wav], sample_rate, language=language)[0]
 
 
 def _normalize_text(text: str) -> str:
@@ -188,3 +198,37 @@ def compute_score(sample, wav, sample_rate, audio_codes) -> float:
     sim_weight = float(os.environ.get("REWARD_SIM_WEIGHT", "0.4"))
     total = max(wer_weight + sim_weight, 1e-6)
     return float((wer_weight * wer_component + sim_weight * sim_component) / total)
+
+
+def compute_scores(sample, wavs, sample_rate, audio_codes_list) -> list[float]:
+    del audio_codes_list
+    if not wavs:
+        return []
+
+    ref_audio = sample.get("ref_audio")
+    if not ref_audio:
+        return [-1.0] * len(wavs)
+
+    target_text = sample.get("text") or sample.get("target_text") or ""
+    language = sample.get("language", None)
+    hyp_texts = _transcribe_many(wavs, sample_rate, language=language)
+    ref_emb = _ref_embedding(ref_audio)
+    wer_weight = float(os.environ.get("REWARD_WER_WEIGHT", "0.6"))
+    sim_weight = float(os.environ.get("REWARD_SIM_WEIGHT", "0.4"))
+    total = max(wer_weight + sim_weight, 1e-6)
+
+    scores = []
+    for wav, hyp_text in zip(wavs, hyp_texts):
+        if wav is None or len(wav) == 0 or not np.isfinite(wav).all():
+            scores.append(-1.0)
+            continue
+        duration = len(wav) / float(sample_rate)
+        min_duration = float(sample.get("min_duration", 0.4))
+        max_duration = float(sample.get("max_duration", 20.0))
+        if duration < min_duration or duration > max_duration:
+            scores.append(-1.0)
+            continue
+        wer_component = _wer_score(target_text, hyp_text) if hyp_text else 0.0
+        sim_component = _cosine_score(_mfcc_embedding(wav, sample_rate), ref_emb)
+        scores.append(float((wer_weight * wer_component + sim_weight * sim_component) / total))
+    return scores

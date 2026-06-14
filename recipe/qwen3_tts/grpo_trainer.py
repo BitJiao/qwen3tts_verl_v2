@@ -198,6 +198,30 @@ def call_reward(
     return float(value)
 
 
+def call_rewards(
+    reward_fn: Callable[..., float],
+    sample: dict[str, Any],
+    wavs: list[np.ndarray],
+    sample_rate: int,
+    codes_list: list[torch.Tensor],
+) -> list[float]:
+    module = importlib.import_module(reward_fn.__module__)
+    batch_fn = getattr(module, "compute_scores", None)
+    if callable(batch_fn):
+        try:
+            values = batch_fn(sample=sample, wavs=wavs, sample_rate=sample_rate, audio_codes_list=codes_list)
+        except TypeError:
+            values = batch_fn(sample, wavs, sample_rate, codes_list)
+        values = [float(value) for value in values]
+        if len(values) != len(wavs):
+            raise ValueError(f"Batch reward returned {len(values)} values for {len(wavs)} wavs")
+        return values
+    return [
+        call_reward(reward_fn, sample=sample, wav=wav, sample_rate=sample_rate, codes=codes)
+        for codes, wav in zip(codes_list, wavs)
+    ]
+
+
 @torch.no_grad()
 def generate_voice_clone_rollouts(
     tts: Qwen3TTSModel,
@@ -603,10 +627,13 @@ def main():
             policy_items = []
             for sample_idx, codes_list, wavs, sample_rate in rollout_results:
                 sample = prompt_batch[sample_idx]
-                rewards = [
-                    call_reward(reward_fn, sample=sample, wav=wav, sample_rate=sample_rate, codes=codes)
-                    for codes, wav in zip(codes_list, wavs)
-                ]
+                rewards = call_rewards(
+                    reward_fn,
+                    sample=sample,
+                    wavs=wavs,
+                    sample_rate=sample_rate,
+                    codes_list=codes_list,
+                )
                 advantages = group_advantages(rewards, args.advantage_eps).to(device)
                 if torch.count_nonzero(advantages).item() == 0:
                     zero_advantage_groups += 1
