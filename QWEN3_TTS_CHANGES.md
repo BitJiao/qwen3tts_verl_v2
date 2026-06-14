@@ -21,6 +21,8 @@ post-training support.
 - `recipe/qwen3_tts/wer_sim_reward.py`
   - Default WER + reference-audio similarity reward hook.
   - Uses edit-distance text score plus MFCC cosine similarity by default.
+  - Defaults to `REWARD_ASR_BACKEND=none` to avoid network downloads; enable
+    local ASR explicitly for WER scoring.
 - `recipe/qwen3_tts/example_reward.py`
   - Simple audio-validity example reward.
 - `recipe/qwen3_tts/smoke_reward.py`

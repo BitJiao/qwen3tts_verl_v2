@@ -67,7 +67,7 @@ def _get_asr():
     if _ASR is not None:
         return _ASR
 
-    backend = os.environ.get("REWARD_ASR_BACKEND", "transformers").lower()
+    backend = os.environ.get("REWARD_ASR_BACKEND", "none").lower()
     model_path = os.environ.get("ASR_MODEL_PATH", "openai/whisper-small")
 
     if backend in {"", "none", "off", "false", "0"}:

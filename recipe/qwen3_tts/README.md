@@ -163,6 +163,11 @@ ASR_MODEL_PATH=/path/to/whisper-model \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
+By default, `REWARD_ASR_BACKEND=none` to avoid network downloads during long
+training runs. Set `REWARD_ASR_BACKEND=transformers` or
+`REWARD_ASR_BACKEND=faster_whisper` and `ASR_MODEL_PATH=/path/to/local/model`
+when you have a local ASR model ready.
+
 The runner saves checkpoints to `OUTPUT_DIR`, defaulting to
 `checkpoints/qwen3_tts_${ALGORITHM}_...`. It saves Base-style checkpoints, so
 inference uses `generate_voice_clone`.

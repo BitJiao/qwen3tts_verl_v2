@@ -8,6 +8,7 @@ import random
 import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -473,6 +474,19 @@ def sync_rollout_models(source: Qwen3TTSModel, rollout_models: list[Qwen3TTSMode
         rollout_model.model.load_state_dict(source_state, strict=True)
 
 
+def format_eta(seconds: float) -> str:
+    if not math.isfinite(seconds) or seconds < 0:
+        return "unknown"
+    seconds = int(seconds)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m{secs:02d}s"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{secs}s"
+
+
 def main():
     args = parse_args()
     torch.set_num_threads(max(1, int(os.environ.get("TORCH_NUM_THREADS", "1"))))
@@ -556,6 +570,7 @@ def main():
     output_root.mkdir(parents=True, exist_ok=True)
 
     global_step = 0
+    train_begin_time = time.perf_counter()
     for epoch in range(args.num_epochs):
         if args.shuffle:
             random.shuffle(data)
@@ -634,6 +649,11 @@ def main():
 
             global_step += 1
             step_seconds = time.perf_counter() - step_start_time
+            elapsed_seconds = time.perf_counter() - train_begin_time
+            avg_step_seconds = elapsed_seconds / max(global_step, 1)
+            remaining_steps = max(planned_steps - global_step, 0)
+            eta_seconds = remaining_steps * avg_step_seconds
+            finish_at = datetime.now() + timedelta(seconds=eta_seconds)
             generated_rollouts = len(rollout_results) * args.group_size
             reward_mean = float(np.mean(step_rewards)) if step_rewards else math.nan
             reward_std = float(np.std(step_rewards)) if step_rewards else math.nan
@@ -644,6 +664,14 @@ def main():
                     {
                         "epoch": epoch,
                         "step": global_step,
+                        "total_steps": planned_steps,
+                        "remaining_steps": remaining_steps,
+                        "progress_percent": 100.0 * global_step / max(planned_steps, 1),
+                        "elapsed": format_eta(elapsed_seconds),
+                        "eta": format_eta(eta_seconds),
+                        "eta_seconds": eta_seconds,
+                        "finish_at": finish_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        "avg_step_seconds": avg_step_seconds,
                         "algorithm": args.algorithm,
                         "reward_mean": reward_mean,
                         "reward_std": reward_std,

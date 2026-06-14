@@ -93,6 +93,10 @@ MAX_STEPS=-1 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
+The default reward does not download ASR models. Set
+`REWARD_ASR_BACKEND=transformers` or `REWARD_ASR_BACKEND=faster_whisper` plus
+`ASR_MODEL_PATH=/path/to/local/model` to enable WER scoring.
+
 `ATTN_IMPLEMENTATION=eager` is the default in the ready-to-run RL scripts
 because the current stack can fail in speech-tokenizer decode with `sdpa`.
 
