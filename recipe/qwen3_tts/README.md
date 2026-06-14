@@ -142,6 +142,9 @@ Ready-to-run 8-rollout scripts:
 # GRPO smoke/full run. Set MAX_STEPS=-1 for a full epoch.
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 
+# GRPO full-epoch run. This defaults to MAX_STEPS=-1.
+bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager_full.sh
+
 # PPO-style clipped policy objective.
 bash recipe/qwen3_tts/run_qwen3_tts_ppo_all_g8_eager.sh
 
