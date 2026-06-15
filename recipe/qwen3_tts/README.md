@@ -28,19 +28,9 @@ pip install -e /opt/data/private/jsj/Qwen3-TTS-main/verl-main
 pip install librosa soundfile
 ```
 
-Optional reward dependencies:
-
-```bash
-# Faster local ASR backend, optional.
-pip install faster-whisper
-```
-
-If you want to use the default `transformers` ASR reward backend, set a local
-Whisper-compatible model path when running:
-
-```bash
-export ASR_MODEL_PATH=/path/to/whisper-model
-```
+SpeechJudge-GRM runs in a separate Python environment because its
+Qwen2.5-Omni dependencies require a newer torch than the Qwen3-TTS training
+stack. Follow [SPEECHJUDGE_SETUP.md](SPEECHJUDGE_SETUP.md) before GRPO.
 
 ## SFT Data
 
@@ -130,7 +120,7 @@ cd /opt/data/private/jsj/Qwen3-TTS-main/verl-main
 
 MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
 TRAIN_JSONL=/path/to/train_grpo.jsonl \
-REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
+REWARD_FN=recipe.qwen3_tts.speechjudge_reward:compute_score \
 GROUP_SIZE=4 \
 MAX_STEPS=10 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
@@ -157,16 +147,21 @@ Common overrides:
 ```bash
 MAX_STEPS=-1 \
 ROLLOUT_DEVICES=cuda:0,cuda:1,cuda:2,cuda:3 \
-REWARD_WER_WEIGHT=0.6 \
-REWARD_SIM_WEIGHT=0.4 \
-ASR_MODEL_PATH=/path/to/whisper-model \
+SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
+SPEECHJUDGE_REPO=/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge \
+SPEECHJUDGE_MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
 The ready-to-run scripts default to four rollout devices
-`cuda:0,cuda:1,cuda:2,cuda:3`, `PROMPT_BATCH_SIZE=4`, and the local ASR model
-at `/opt/data/private/jsj/models/openai-whisper-small`. Set
-`REWARD_ASR_BACKEND=none` to disable WER and use only the similarity component.
+`cuda:0,cuda:1,cuda:2,cuda:3`, `PROMPT_BATCH_SIZE=4`, and SpeechJudge-GRM
+naturalness reward via `recipe.qwen3_tts.speechjudge_reward:compute_score`.
+They also default to `SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765`.
+The SpeechJudge repository is expected at
+`/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge`, and the model
+checkpoint is expected at
+`/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM`.
+Start `recipe.qwen3_tts.speechjudge_server` before launching GRPO.
 
 The runner saves checkpoints to `OUTPUT_DIR`, defaulting to
 `checkpoints/qwen3_tts_${ALGORITHM}_...`. It saves Base-style checkpoints, so
@@ -180,16 +175,8 @@ def compute_score(sample, wav, sample_rate, audio_codes) -> float:
     ...
 ```
 
-The included `wer_sim_reward.py` combines ASR text accuracy and reference-audio
-similarity:
-
-```text
-reward = REWARD_WER_WEIGHT * wer_score + REWARD_SIM_WEIGHT * sim_score
-```
-
-The current sim score is an MFCC cosine proxy so the recipe has no mandatory
-speaker-verification dependency. Replace it with ECAPA/WavLM/CAM++ when you
-have a preferred speaker model.
+The default `speechjudge_reward.py` calls SpeechJudge-GRM to judge speech
+naturalness and normalizes its 1-10 score to 0-1.
 
 ## Notes
 
