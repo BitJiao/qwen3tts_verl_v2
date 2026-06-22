@@ -121,7 +121,10 @@ cd /opt/data/private/jsj/Qwen3-TTS-main/verl-main
 
 MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
 TRAIN_JSONL=/path/to/train_grpo.jsonl \
-REWARD_FN=recipe.qwen3_tts.speechjudge_reward:compute_score \
+REWARD_FN=recipe.qwen3_tts.combined_reward:compute_score \
+REWARD_WER_WEIGHT=0.3 \
+REWARD_SIM_WEIGHT=0.2 \
+REWARD_JUDGE_WEIGHT=0.5 \
 GROUP_SIZE=4 \
 MAX_STEPS=10 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
@@ -158,6 +161,12 @@ Common overrides:
 ```bash
 MAX_STEPS=-1 \
 ROLLOUT_DEVICES=auto \
+REWARD_WER_WEIGHT=0.3 \
+REWARD_SIM_WEIGHT=0.2 \
+REWARD_JUDGE_WEIGHT=0.5 \
+REWARD_DURATION_WEIGHT=0.0 \
+REWARD_ASR_BACKEND=transformers \
+ASR_MODEL_PATH=/opt/data/private/jsj/models/openai-whisper-small \
 SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
 SPEECHJUDGE_REPO=/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge \
 SPEECHJUDGE_MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM \
@@ -165,9 +174,24 @@ bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
 The ready-to-run scripts default to `ROLLOUT_DEVICES=auto`,
-`PROMPT_BATCH_SIZE=4`, and SpeechJudge-GRM
-naturalness reward via `recipe.qwen3_tts.speechjudge_reward:compute_score`.
-They also default to `SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765`.
+`PROMPT_BATCH_SIZE=4`, and a combined reward via
+`recipe.qwen3_tts.combined_reward:compute_score`:
+
+```text
+reward = (
+  REWARD_WER_WEIGHT * wer_score
+  + REWARD_SIM_WEIGHT * sim_score
+  + REWARD_JUDGE_WEIGHT * speechjudge_score
+  + REWARD_DURATION_WEIGHT * duration_score
+) / positive_weight_sum
+```
+
+Default weights are `REWARD_WER_WEIGHT=0.3`, `REWARD_SIM_WEIGHT=0.2`,
+`REWARD_JUDGE_WEIGHT=0.5`, and `REWARD_DURATION_WEIGHT=0.0`.
+`duration_score` is optional and uses `target_duration` when present.
+Set `COMBINED_REWARD_LOG_COMPONENTS=1` to print component means from the
+reward function. The scripts default to
+`SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765`.
 The SpeechJudge repository is expected at
 `/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge`, and the model
 checkpoint is expected at
@@ -186,8 +210,10 @@ def compute_score(sample, wav, sample_rate, audio_codes) -> float:
     ...
 ```
 
-The default `speechjudge_reward.py` calls SpeechJudge-GRM to judge speech
-naturalness and normalizes its 1-10 score to 0-1.
+The default `combined_reward.py` combines text faithfulness, reference-audio
+similarity, and SpeechJudge-GRM naturalness. `wer_sim_reward.py` and
+`speechjudge_reward.py` remain available as standalone reward functions for
+ablation runs.
 
 ## Notes
 

@@ -76,7 +76,13 @@ From `verl-main`:
 QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \
 MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
 TRAIN_JSONL=/opt/data/private/jsj/Qwen3-TTS-main/data/minds14_qwen3tts_all/all_grpo.jsonl \
-REWARD_FN=recipe.qwen3_tts.speechjudge_reward:compute_score \
+REWARD_FN=recipe.qwen3_tts.combined_reward:compute_score \
+REWARD_WER_WEIGHT=0.3 \
+REWARD_SIM_WEIGHT=0.2 \
+REWARD_JUDGE_WEIGHT=0.5 \
+REWARD_DURATION_WEIGHT=0.0 \
+REWARD_ASR_BACKEND=transformers \
+ASR_MODEL_PATH=/opt/data/private/jsj/models/openai-whisper-small \
 SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
 SPEECHJUDGE_REPO=/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge \
 SPEECHJUDGE_MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM \
@@ -93,6 +99,13 @@ PROMPT_BATCH_SIZE=1 \
 DEVICE=cuda:4 \
 ROLLOUT_DEVICES=cuda:4 \
 MAX_STEPS=2 \
+REWARD_FN=recipe.qwen3_tts.combined_reward:compute_score \
+REWARD_WER_WEIGHT=0.3 \
+REWARD_SIM_WEIGHT=0.2 \
+REWARD_JUDGE_WEIGHT=0.5 \
+REWARD_DURATION_WEIGHT=0.0 \
+REWARD_ASR_BACKEND=transformers \
+ASR_MODEL_PATH=/opt/data/private/jsj/models/openai-whisper-small \
 SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```
