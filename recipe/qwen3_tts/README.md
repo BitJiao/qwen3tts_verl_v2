@@ -3,7 +3,8 @@
 This recipe keeps Qwen3-TTS changes isolated under `recipe/qwen3_tts`.
 
 - `sft_trainer.py`: Qwen3-TTS 12Hz SFT on verl `TrainingWorker` + FSDP.
-- `grpo_trainer.py`: lightweight Qwen3-TTS GRPO/PPO/GSPO-style runner for Base voice-clone RL.
+- `grpo_trainer.py`: Qwen3-TTS GRPO/PPO/GSPO-style runner for Base voice-clone RL.
+- `ray_grpo_trainer.py`: Ray multi-GPU worker runner used by the GRPO/PPO/GSPO shell scripts.
 - `export_custom_voice.py`: export verl FSDP SFT shards to Qwen3-TTS `custom_voice`.
 
 ## Environment
@@ -126,6 +127,16 @@ MAX_STEPS=10 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```
 
+`run_qwen3_tts_grpo.sh` now enables Ray by default. It starts one Ray worker
+per visible GPU, or per `ROLLOUT_DEVICES` entry when that is set. Rollout and
+loss run across the workers, then gradients are summed with torch distributed
+before every optimizer step. Set `USE_RAY=0` only when you explicitly want the
+old single-process fallback.
+
+By default the driver computes rewards on the complete GRPO group, preserving
+batch reward semantics. For purely independent reward functions, set
+`RAY_REWARD_ON_WORKER=1` to score on rollout workers and reduce audio transfer.
+
 Ready-to-run 8-rollout scripts:
 
 ```bash
@@ -146,15 +157,15 @@ Common overrides:
 
 ```bash
 MAX_STEPS=-1 \
-ROLLOUT_DEVICES=cuda:0,cuda:1,cuda:2,cuda:3 \
+ROLLOUT_DEVICES=auto \
 SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
 SPEECHJUDGE_REPO=/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge \
 SPEECHJUDGE_MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
-The ready-to-run scripts default to four rollout devices
-`cuda:0,cuda:1,cuda:2,cuda:3`, `PROMPT_BATCH_SIZE=4`, and SpeechJudge-GRM
+The ready-to-run scripts default to `ROLLOUT_DEVICES=auto`,
+`PROMPT_BATCH_SIZE=4`, and SpeechJudge-GRM
 naturalness reward via `recipe.qwen3_tts.speechjudge_reward:compute_score`.
 They also default to `SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765`.
 The SpeechJudge repository is expected at
@@ -184,5 +195,5 @@ naturalness and normalizes its 1-10 score to 0-1.
   because `sdpa` can fail in the speech tokenizer decode path on this stack.
 - `MAX_STEPS=10` is a smoke-test setting. Use `MAX_STEPS=-1` for the full
   configured epoch count.
-- PPO/GSPO here are lightweight Qwen3-TTS voice-clone RL adaptations. They do
-  not yet route through verl's full Ray `main_ppo` rollout stack.
+- PPO/GSPO here are Qwen3-TTS voice-clone RL adaptations with a custom Ray
+  runner. They do not route through verl's generic LLM `main_ppo` data path.

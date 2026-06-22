@@ -69,6 +69,18 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--use_ray", action="store_true", help="Run the Qwen3-TTS RL loop with Ray GPU workers.")
+    parser.add_argument("--ray_num_workers", type=int, default=None, help="Number of Ray GPU workers. Defaults to rollout device count.")
+    parser.add_argument("--ray_address", default=None, help="Ray cluster address. Use 'auto' to connect to an existing cluster.")
+    parser.add_argument("--ray_master_addr", default=None, help="Torch distributed master address for Ray workers.")
+    parser.add_argument("--ray_master_port", type=int, default=0, help="Torch distributed master port. 0 chooses a free local port.")
+    parser.add_argument("--ray_num_cpus_per_worker", type=int, default=4)
+    parser.add_argument("--ray_pg_timeout_s", type=int, default=1800)
+    parser.add_argument(
+        "--ray_reward_on_worker",
+        action="store_true",
+        help="Compute rewards on rollout workers. Use only for reward functions that score candidates independently.",
+    )
     return parser.parse_args()
 
 
@@ -513,6 +525,12 @@ def format_eta(seconds: float) -> str:
 
 def main():
     args = parse_args()
+    if args.use_ray:
+        from recipe.qwen3_tts.ray_grpo_trainer import ray_main
+
+        ray_main(args)
+        return
+
     torch.set_num_threads(max(1, int(os.environ.get("TORCH_NUM_THREADS", "1"))))
     torch.set_num_interop_threads(max(1, int(os.environ.get("TORCH_NUM_INTEROP_THREADS", "1"))))
     random.seed(args.seed)
