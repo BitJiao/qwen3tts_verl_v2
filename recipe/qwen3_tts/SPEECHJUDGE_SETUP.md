@@ -48,11 +48,11 @@ used by Qwen3-TTS training.
 Use a GPU with enough free memory. Example:
 
 ```bash
-cd /opt/data/private/jsj/Qwen3-TTS-main/verl-main
+cd /opt/data/private/jsj/qwen3tts_verl_v2
 
 CUDA_VISIBLE_DEVICES=1 \
 HF_ENDPOINT=https://hf-mirror.com \
-PYTHONPATH=/opt/data/private/jsj/Qwen3-TTS-main/verl-main:/opt/data/private/jsj/Qwen3-TTS-main \
+PYTHONPATH=/opt/data/private/jsj/qwen3tts_verl_v2:/opt/data/private/jsj/Qwen3-TTS-main \
 /opt/data/private/jsj/Qwen3-TTS-main/.speechjudge-venv/bin/python \
   -m recipe.qwen3_tts.speechjudge_server \
   --host 127.0.0.1 \
@@ -70,7 +70,7 @@ curl http://127.0.0.1:8765/health
 
 ## 4. Run GRPO
 
-From `verl-main`:
+From this repo root:
 
 ```bash
 QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \

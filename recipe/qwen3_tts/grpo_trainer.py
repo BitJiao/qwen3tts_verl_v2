@@ -6,6 +6,7 @@ import math
 import os
 import random
 import shutil
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
@@ -14,7 +15,7 @@ from typing import Any, Callable
 
 import numpy as np
 import torch
-from finetuning.dataset import TTSDataset
+import torch.nn.functional as F
 from huggingface_hub import snapshot_download
 from qwen_tts.inference.qwen3_tts_model import Qwen3TTSModel
 from safetensors.torch import save_file
@@ -22,6 +23,28 @@ from torch.optim import AdamW
 from transformers import AutoConfig
 
 import recipe.qwen3_tts.register  # noqa: F401
+
+
+def _ensure_qwen3_tts_repo_on_path() -> None:
+    candidates: list[Path] = []
+    env_repo = os.environ.get("QWEN3_TTS_REPO")
+    if env_repo:
+        candidates.append(Path(env_repo))
+
+    qwen_spec = importlib.util.find_spec("qwen_tts")
+    if qwen_spec is not None and qwen_spec.origin:
+        candidates.append(Path(qwen_spec.origin).resolve().parents[1])
+
+    for candidate in candidates:
+        if (candidate / "finetuning" / "dataset.py").is_file():
+            candidate_str = str(candidate)
+            if candidate_str not in sys.path:
+                sys.path.insert(0, candidate_str)
+            return
+
+
+_ensure_qwen3_tts_repo_on_path()
+from finetuning.dataset import TTSDataset
 
 
 def parse_args():
@@ -423,28 +446,33 @@ def qwen3_tts_nll(model, batch: dict[str, torch.Tensor], sub_talker_loss_coef: f
     input_text_ids = input_ids[:, :, 0]
     input_codec_ids = input_ids[:, :, 1]
 
-    input_text_embedding = model.talker.model.text_embedding(input_text_ids) * text_embedding_mask
+    input_text_embedding = model.talker.text_projection(model.talker.model.text_embedding(input_text_ids))
+    input_text_embedding = input_text_embedding * text_embedding_mask
     input_codec_embedding = model.talker.model.codec_embedding(input_codec_ids) * codec_embedding_mask
     input_codec_embedding[:, 6, :] = speaker_embedding
 
     input_embeddings = input_text_embedding + input_codec_embedding
-    for i in range(1, 16):
+    for i in range(1, model.talker.config.num_code_groups):
         codec_i_embedding = model.talker.code_predictor.get_input_embeddings()[i - 1](codec_ids[:, :, i])
         codec_i_embedding = codec_i_embedding * codec_mask.unsqueeze(-1)
         input_embeddings = input_embeddings + codec_i_embedding
 
+    codec_loss_mask = codec_0_labels[:, 1:].ne(-100)
     outputs = model.talker(
         inputs_embeds=input_embeddings[:, :-1, :],
         attention_mask=attention_mask[:, :-1],
-        labels=codec_0_labels[:, 1:],
         output_hidden_states=True,
+    )
+    codec_0_loss = F.cross_entropy(
+        outputs.logits[codec_loss_mask],
+        codec_0_labels[:, 1:][codec_loss_mask],
     )
     hidden_states = outputs.hidden_states[0][-1]
     talker_hidden_states = hidden_states[codec_mask[:, :-1]]
     talker_codec_ids = codec_ids[codec_mask]
     _, sub_talker_loss = model.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
-    loss = outputs.loss + sub_talker_loss_coef * sub_talker_loss
-    return loss, outputs.loss.detach(), sub_talker_loss.detach()
+    loss = codec_0_loss + sub_talker_loss_coef * sub_talker_loss
+    return loss, codec_0_loss.detach(), sub_talker_loss.detach()
 
 
 def policy_loss_from_nll(

@@ -25,6 +25,7 @@ from typing import Callable, ContextManager, Optional
 
 import torch
 import torch.distributed
+import torch.nn.functional as F
 from peft import LoraConfig, TaskType, get_peft_model
 from tensordict import TensorDict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -100,22 +101,27 @@ def _qwen3_tts_finetune_forward(
     input_text_ids = input_ids[:, :, 0]
     input_codec_ids = input_ids[:, :, 1]
 
-    input_text_embedding = self.talker.model.text_embedding(input_text_ids) * text_embedding_mask
+    input_text_embedding = self.talker.text_projection(self.talker.model.text_embedding(input_text_ids))
+    input_text_embedding = input_text_embedding * text_embedding_mask
     input_codec_embedding = self.talker.model.codec_embedding(input_codec_ids) * codec_embedding_mask
     input_codec_embedding[:, 6, :] = speaker_embedding
 
     input_embeddings = input_text_embedding + input_codec_embedding
 
-    for i in range(1, 16):
+    for i in range(1, self.talker.config.num_code_groups):
         codec_i_embedding = self.talker.code_predictor.get_input_embeddings()[i - 1](codec_ids[:, :, i])
         codec_i_embedding = codec_i_embedding * codec_mask.unsqueeze(-1)
         input_embeddings = input_embeddings + codec_i_embedding
 
+    codec_loss_mask = codec_0_labels[:, 1:].ne(-100)
     outputs = self.talker(
         inputs_embeds=input_embeddings[:, :-1, :],
         attention_mask=attention_mask[:, :-1],
-        labels=codec_0_labels[:, 1:],
         output_hidden_states=True,
+    )
+    codec_0_loss = F.cross_entropy(
+        outputs.logits[codec_loss_mask],
+        codec_0_labels[:, 1:][codec_loss_mask],
     )
 
     hidden_states = outputs.hidden_states[0][-1]
@@ -123,11 +129,11 @@ def _qwen3_tts_finetune_forward(
     talker_codec_ids = codec_ids[codec_mask]
 
     _, sub_talker_loss = self.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
-    loss = outputs.loss + sub_talker_loss_coef * sub_talker_loss
+    loss = codec_0_loss + sub_talker_loss_coef * sub_talker_loss
 
     return {
         "loss": loss,
-        "codec_0_loss": outputs.loss,
+        "codec_0_loss": codec_0_loss,
         "sub_talker_loss": sub_talker_loss,
     }
 
