@@ -10,13 +10,15 @@ import numpy as np
 import torch
 from transformers import Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="HTTP server for SpeechJudge-GRM naturalness scoring.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--model_path", default="/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM")
-    parser.add_argument("--speechjudge_repo", default="/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge")
+    parser.add_argument("--model_path", default=str(_REPO_ROOT / "pretrained" / "SpeechJudge-GRM"))
+    parser.add_argument("--speechjudge_repo", default=str(_REPO_ROOT / "third_party" / "SpeechJudge"))
     parser.add_argument("--attn_implementation", default="eager")
     parser.add_argument("--device_map", default="auto")
     parser.add_argument("--max_new_tokens", type=int, default=64)

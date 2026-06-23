@@ -3,18 +3,19 @@
 Qwen3-TTS 12Hz Base post-training recipe on top of verl.
 
 This repository is a verl fork with one supported target: Qwen3-TTS SFT and
-voice-clone RL. The Qwen3-TTS model package is not vendored here; install it
-separately and expose it with `QWEN3_TTS_REPO`.
+voice-clone RL. A clean clone is expected to become one working directory:
+Qwen3-TTS source is cloned into `third_party/Qwen3-TTS`, the shared Python
+environment lives at `.venv`, and model weights live under `models/`.
 
 ## What Works
 
 - Qwen3-TTS SFT through the verl FSDP engine.
 - GRPO/PPO/GSPO-style voice-clone RL runner.
 - Ray multi-GPU rollout workers.
-- WER/speaker-sim/SpeechJudge combined reward.
+- WER/speaker-sim reward, plus optional SpeechJudge through a separate server.
 - FSDP checkpoint export to Qwen3-TTS `custom_voice` layout.
 
-## Install
+## Install From A Clean Clone
 
 System dependency:
 
@@ -23,27 +24,56 @@ apt-get update
 apt-get install -y ffmpeg
 ```
 
-Python environment:
+Clone this repo and let the setup script fetch Qwen3-TTS:
 
 ```bash
-export QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main
-export VERL_REPO=/opt/data/private/jsj/qwen3tts_verl_v2
+git clone https://github.com/BitJiao/qwen3tts_verl_v2.git
+cd qwen3tts_verl_v2
 
-cd "${QWEN3_TTS_REPO}"
-uv venv .venv --python 3.11
+bash scripts/setup_qwen3tts_env.sh
 source .venv/bin/activate
+export QWEN3_TTS_REPO="$(pwd)/third_party/Qwen3-TTS"
+export VERL_REPO="$(pwd)"
+export MODEL_PATH="$(pwd)/models/Qwen3-TTS-12Hz-1.7B-Base"
 
-pip install -U pip
-pip install -e "${QWEN3_TTS_REPO}"
-pip install -e "${VERL_REPO}"
-pip install librosa soundfile
-
-cd "${VERL_REPO}"
 python scripts/check_qwen3_tts_env.py
+```
+
+The setup script installs `torch==2.3.1` and `torchaudio==2.3.1` before
+installing Qwen3-TTS so pip does not resolve to an untested latest Torch/CUDA
+stack. The remaining shared runtime dependencies are listed in
+`requirements-qwen3tts-verl.txt` and installed into the same `.venv`. Override
+with `TORCH_SPEC` and `TORCH_INDEX_URL` if your machine needs a different wheel
+source. Set `TORCH_SPEC=skip` only if `.venv` already has compatible `torch`
+and `torchaudio`.
+
+The script also patches the cloned Qwen3-TTS source under `third_party/Qwen3-TTS`
+so its 12 Hz fine-tuning path uses `talker.text_projection(...)` and explicit CE
+loss. Existing Qwen3-TTS git checkouts are reused by default; set
+`QWEN3_TTS_UPDATE=1` only when you intentionally want to update a clean checkout
+before patching it again.
+
+Optional model download:
+
+```bash
+DOWNLOAD_MODEL=1 bash scripts/setup_qwen3tts_env.sh
+```
+
+If Hugging Face is slow, pass your mirror:
+
+```bash
+HF_ENDPOINT=https://hf-mirror.com DOWNLOAD_MODEL=1 bash scripts/setup_qwen3tts_env.sh
 ```
 
 Do not install this repo from `Qwen3-TTS-main/verl-main`; that path was from an
 older local checkout and is not valid for a clean clone of this repository.
+
+For an existing Qwen3-TTS checkout, set `QWEN3_TTS_REPO=/path/to/Qwen3-TTS`
+before running `scripts/setup_qwen3tts_env.sh`.
+
+SpeechJudge is intentionally not installed by this script because it needs a
+newer/conflicting stack. Run it in a separate environment and call it through
+the local HTTP server described in `recipe/qwen3_tts/SPEECHJUDGE_SETUP.md`.
 
 ## Data
 
@@ -57,7 +87,7 @@ Generate codes with Qwen3-TTS:
 
 ```bash
 python "${QWEN3_TTS_REPO}/finetuning/prepare_data.py" \
-  --tokenizer_model_path /opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base/speech_tokenizer \
+  --tokenizer_model_path "${MODEL_PATH}/speech_tokenizer" \
   --input_jsonl train_raw.jsonl \
   --output_jsonl train_with_codes.jsonl
 ```
@@ -73,7 +103,7 @@ RL rows need text plus a 24 kHz reference audio:
 ```bash
 cd "${VERL_REPO}"
 
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
+MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
 TRAIN_JSONL=/path/to/train_with_codes.jsonl \
 N_GPUS_PER_NODE=1 \
@@ -90,7 +120,7 @@ Basic smoke run:
 ```bash
 cd "${VERL_REPO}"
 
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
+MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
 TRAIN_JSONL=/path/to/train_grpo.jsonl \
 GROUP_SIZE=2 \

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL_PATH=${MODEL_PATH:-/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base}
-QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-/opt/data/private/jsj/Qwen3-TTS-main}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+
+MODEL_PATH=${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}
+QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}
 TRAIN_JSONL=${TRAIN_JSONL:-train_with_codes.jsonl}
 VAL_JSONL=${VAL_JSONL:-}
 PROJECT_NAME=${PROJECT_NAME:-qwen3-tts-sft}
@@ -16,7 +19,8 @@ LR=${LR:-2e-5}
 TOTAL_EPOCHS=${TOTAL_EPOCHS:-3}
 SAVE_FREQ=${SAVE_FREQ:-after_each_epoch}
 
-export PYTHONPATH="$(pwd):${QWEN3_TTS_REPO}:${PYTHONPATH:-}"
+cd "${VERL_ROOT}"
+export PYTHONPATH="${VERL_ROOT}:${QWEN3_TTS_REPO}:${PYTHONPATH:-}"
 
 torchrun --standalone --nnodes="${NNODES}" --nproc_per_node="${N_GPUS_PER_NODE}" \
   -m recipe.qwen3_tts.sft_trainer \

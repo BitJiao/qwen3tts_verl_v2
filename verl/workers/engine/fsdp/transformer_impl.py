@@ -128,7 +128,12 @@ def _qwen3_tts_finetune_forward(
     talker_hidden_states = hidden_states[codec_mask[:, :-1]]
     talker_codec_ids = codec_ids[codec_mask]
 
-    _, sub_talker_loss = self.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
+    sub_talker_logits, _ = self.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
+    sub_talker_labels = talker_codec_ids[:, 1:]
+    sub_talker_loss = F.cross_entropy(
+        sub_talker_logits.reshape(-1, sub_talker_logits.size(-1)),
+        sub_talker_labels.reshape(-1),
+    )
     loss = codec_0_loss + sub_talker_loss_coef * sub_talker_loss
 
     return {

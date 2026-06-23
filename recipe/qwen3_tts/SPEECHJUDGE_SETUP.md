@@ -7,7 +7,7 @@ server. Keep Qwen3-TTS training in the existing `.venv`.
 ## 1. Download SpeechJudge
 
 ```bash
-cd /opt/data/private/jsj/Qwen3-TTS-main
+cd /path/to/qwen3tts_verl_v2
 mkdir -p third_party pretrained
 
 git clone https://github.com/AmphionTeam/SpeechJudge.git \
@@ -32,7 +32,7 @@ model-00005-of-00005.safetensors
 ## 2. Create SpeechJudge Environment
 
 ```bash
-cd /opt/data/private/jsj/Qwen3-TTS-main
+cd /path/to/qwen3tts_verl_v2
 uv venv .speechjudge-venv --python 3.11
 .speechjudge-venv/bin/python -m ensurepip --upgrade
 .speechjudge-venv/bin/python -m pip install \
@@ -48,17 +48,17 @@ used by Qwen3-TTS training.
 Use a GPU with enough free memory. Example:
 
 ```bash
-cd /opt/data/private/jsj/qwen3tts_verl_v2
+cd /path/to/qwen3tts_verl_v2
 
 CUDA_VISIBLE_DEVICES=1 \
 HF_ENDPOINT=https://hf-mirror.com \
-PYTHONPATH=/opt/data/private/jsj/qwen3tts_verl_v2:/opt/data/private/jsj/Qwen3-TTS-main \
-/opt/data/private/jsj/Qwen3-TTS-main/.speechjudge-venv/bin/python \
+PYTHONPATH="$(pwd):$(pwd)/third_party/Qwen3-TTS" \
+./.speechjudge-venv/bin/python \
   -m recipe.qwen3_tts.speechjudge_server \
   --host 127.0.0.1 \
   --port 8765 \
-  --model_path /opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM \
-  --speechjudge_repo /opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge \
+  --model_path "$(pwd)/pretrained/SpeechJudge-GRM" \
+  --speechjudge_repo "$(pwd)/third_party/SpeechJudge" \
   --attn_implementation eager
 ```
 
@@ -73,19 +73,21 @@ curl http://127.0.0.1:8765/health
 From this repo root:
 
 ```bash
-QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
-TRAIN_JSONL=/opt/data/private/jsj/Qwen3-TTS-main/data/minds14_qwen3tts_all/all_grpo.jsonl \
+source .venv/bin/activate
+
+QWEN3_TTS_REPO="$(pwd)/third_party/Qwen3-TTS" \
+MODEL_PATH="$(pwd)/models/Qwen3-TTS-12Hz-1.7B-Base" \
+TRAIN_JSONL="$(pwd)/third_party/Qwen3-TTS/data/minds14_qwen3tts_all/all_grpo.jsonl" \
 REWARD_FN=recipe.qwen3_tts.combined_reward:compute_score \
 REWARD_WER_WEIGHT=0.3 \
 REWARD_SIM_WEIGHT=0.2 \
 REWARD_JUDGE_WEIGHT=0.5 \
 REWARD_DURATION_WEIGHT=0.0 \
 REWARD_ASR_BACKEND=transformers \
-ASR_MODEL_PATH=/opt/data/private/jsj/models/openai-whisper-small \
+ASR_MODEL_PATH="$(pwd)/models/openai-whisper-small" \
 SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
-SPEECHJUDGE_REPO=/opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge \
-SPEECHJUDGE_MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-main/pretrained/SpeechJudge-GRM \
+SPEECHJUDGE_REPO="$(pwd)/third_party/SpeechJudge" \
+SPEECHJUDGE_MODEL_PATH="$(pwd)/pretrained/SpeechJudge-GRM" \
 MAX_STEPS=10 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```
@@ -93,7 +95,7 @@ bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 For a small single-GPU smoke test:
 
 ```bash
-TRAIN_JSONL=/opt/data/private/jsj/Qwen3-TTS-main/data/minds14_qwen3tts/zh-CN_grpo.jsonl \
+TRAIN_JSONL="$(pwd)/third_party/Qwen3-TTS/data/minds14_qwen3tts/zh-CN_grpo.jsonl" \
 GROUP_SIZE=2 \
 PROMPT_BATCH_SIZE=1 \
 DEVICE=cuda:4 \
@@ -105,7 +107,7 @@ REWARD_SIM_WEIGHT=0.2 \
 REWARD_JUDGE_WEIGHT=0.5 \
 REWARD_DURATION_WEIGHT=0.0 \
 REWARD_ASR_BACKEND=transformers \
-ASR_MODEL_PATH=/opt/data/private/jsj/models/openai-whisper-small \
+ASR_MODEL_PATH="$(pwd)/models/openai-whisper-small" \
 SPEECHJUDGE_SERVER_URL=http://127.0.0.1:8765 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```

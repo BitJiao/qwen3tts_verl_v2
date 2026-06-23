@@ -24,6 +24,8 @@ from transformers import AutoConfig
 
 import recipe.qwen3_tts.register  # noqa: F401
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _ensure_qwen3_tts_repo_on_path() -> None:
     candidates: list[Path] = []
@@ -49,7 +51,7 @@ from finetuning.dataset import TTSDataset
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Lightweight RL trainer for Qwen3-TTS Base voice-clone post-training.")
-    parser.add_argument("--model_path", default="/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base")
+    parser.add_argument("--model_path", default=str(_REPO_ROOT / "models" / "Qwen3-TTS-12Hz-1.7B-Base"))
     parser.add_argument("--train_jsonl", required=True)
     parser.add_argument("--output_dir", default="checkpoints/qwen3_tts_grpo")
     parser.add_argument("--reward_fn", default=None, help="Python reward function as module:function or /path/file.py:function")
@@ -470,7 +472,12 @@ def qwen3_tts_nll(model, batch: dict[str, torch.Tensor], sub_talker_loss_coef: f
     hidden_states = outputs.hidden_states[0][-1]
     talker_hidden_states = hidden_states[codec_mask[:, :-1]]
     talker_codec_ids = codec_ids[codec_mask]
-    _, sub_talker_loss = model.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
+    sub_talker_logits, _ = model.talker.forward_sub_talker_finetune(talker_codec_ids, talker_hidden_states)
+    sub_talker_labels = talker_codec_ids[:, 1:]
+    sub_talker_loss = F.cross_entropy(
+        sub_talker_logits.reshape(-1, sub_talker_logits.size(-1)),
+        sub_talker_labels.reshape(-1),
+    )
     loss = codec_0_loss + sub_talker_loss_coef * sub_talker_loss
     return loss, codec_0_loss.detach(), sub_talker_loss.detach()
 

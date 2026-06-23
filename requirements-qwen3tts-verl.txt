@@ -1,0 +1,33 @@
+# Runtime dependencies for the shared Qwen3-TTS + verl environment.
+#
+# Torch is installed first by scripts/setup_qwen3tts_env.sh and constrained
+# during this install so pip does not upgrade it to an untested CUDA stack.
+transformers==4.57.3
+accelerate==1.12.0
+gradio
+librosa
+soundfile
+sox
+onnxruntime
+einops
+safetensors
+huggingface_hub
+
+codetiming
+datasets
+dill
+hydra-core
+numpy<2.0.0
+pandas
+peft
+pyarrow>=19.0.0
+pybind11
+pylatexenc
+ray[default]>=2.41.0
+tensordict>=0.8.0,<=0.10.0,!=0.9.0
+torchdata
+wandb
+packaging>=20.0
+tensorboard
+uvicorn
+fastapi

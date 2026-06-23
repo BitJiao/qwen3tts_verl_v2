@@ -3,10 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
-QWEN3_TTS_REPO="${QWEN3_TTS_REPO:-/opt/data/private/jsj/Qwen3-TTS-main}"
+QWEN3_TTS_REPO="${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}"
 
 cd "${VERL_ROOT}"
-mkdir -p logs "${QWEN3_TTS_REPO}/checkpoints"
+mkdir -p logs checkpoints
 
 TS="${TS:-$(date +%Y%m%d_%H%M%S)}"
 ALGORITHM="${ALGORITHM:-grpo}"
@@ -14,9 +14,9 @@ LOG="${LOG:-logs/${ALGORITHM}_all_g8_eager_${TS}.log}"
 
 export QWEN3_TTS_REPO
 export ALGORITHM
-export MODEL_PATH="${MODEL_PATH:-/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base}"
+export MODEL_PATH="${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}"
 export TRAIN_JSONL="${TRAIN_JSONL:-${QWEN3_TTS_REPO}/data/minds14_qwen3tts_all/all_grpo.jsonl}"
-export OUTPUT_DIR="${OUTPUT_DIR:-${QWEN3_TTS_REPO}/checkpoints/qwen3_tts_${ALGORITHM}_all_g8_eager_${TS}}"
+export OUTPUT_DIR="${OUTPUT_DIR:-${VERL_ROOT}/checkpoints/qwen3_tts_${ALGORITHM}_all_g8_eager_${TS}}"
 export DEVICE="${DEVICE:-cuda:0}"
 export ROLLOUT_DEVICES="${ROLLOUT_DEVICES:-auto}"
 export GROUP_SIZE="${GROUP_SIZE:-8}"
@@ -26,7 +26,7 @@ export SAVE_FREQ="${SAVE_FREQ:-20}"
 export ATTN_IMPLEMENTATION="${ATTN_IMPLEMENTATION:-eager}"
 export REWARD_FN="${REWARD_FN:-recipe.qwen3_tts.combined_reward:compute_score}"
 export REWARD_ASR_BACKEND="${REWARD_ASR_BACKEND:-transformers}"
-export ASR_MODEL_PATH="${ASR_MODEL_PATH:-/opt/data/private/jsj/models/openai-whisper-small}"
+export ASR_MODEL_PATH="${ASR_MODEL_PATH:-${VERL_ROOT}/models/openai-whisper-small}"
 export ASR_DEVICE_INDEX="${ASR_DEVICE_INDEX:-4}"
 export ASR_BATCH_SIZE="${ASR_BATCH_SIZE:-8}"
 export REWARD_WER_WEIGHT="${REWARD_WER_WEIGHT:-0.3}"

@@ -112,7 +112,7 @@ def _load_model():
     except Exception as exc:
         raise RuntimeError(
             "Cannot import SpeechJudge. Clone https://github.com/AmphionTeam/SpeechJudge "
-            "to $SPEECHJUDGE_REPO or /opt/data/private/jsj/Qwen3-TTS-main/third_party/SpeechJudge, and install "
+            "to $SPEECHJUDGE_REPO or this repo's third_party/SpeechJudge, and install "
             "qwen-omni-utils plus the SpeechJudge transformer dependencies."
         ) from exc
 

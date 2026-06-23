@@ -131,3 +131,9 @@ logs
 log
 outputs
 .history
+
+# local source checkouts, environments, and model downloads
+/third_party/
+/models/
+/pretrained/
+/.speechjudge-venv/

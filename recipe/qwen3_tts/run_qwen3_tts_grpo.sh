@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-/opt/data/private/jsj/Qwen3-TTS-main}
-MODEL_PATH=${MODEL_PATH:-/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+
+QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}
+MODEL_PATH=${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}
 TRAIN_JSONL=${TRAIN_JSONL:-${QWEN3_TTS_REPO}/data/minds14_qwen3tts/zh-CN_grpo.jsonl}
 OUTPUT_DIR=${OUTPUT_DIR:-checkpoints/qwen3_tts_grpo}
 REWARD_FN=${REWARD_FN:-recipe.qwen3_tts.combined_reward:compute_score}
@@ -35,7 +38,7 @@ RAY_NUM_CPUS_PER_WORKER=${RAY_NUM_CPUS_PER_WORKER:-4}
 RAY_PG_TIMEOUT_S=${RAY_PG_TIMEOUT_S:-1800}
 RAY_REWARD_ON_WORKER=${RAY_REWARD_ON_WORKER:-0}
 REWARD_ASR_BACKEND=${REWARD_ASR_BACKEND:-transformers}
-ASR_MODEL_PATH=${ASR_MODEL_PATH:-/opt/data/private/jsj/models/openai-whisper-small}
+ASR_MODEL_PATH=${ASR_MODEL_PATH:-${VERL_ROOT}/models/openai-whisper-small}
 ASR_DEVICE_INDEX=${ASR_DEVICE_INDEX:-0}
 ASR_BATCH_SIZE=${ASR_BATCH_SIZE:-8}
 REWARD_WER_WEIGHT=${REWARD_WER_WEIGHT:-0.3}
@@ -47,7 +50,8 @@ export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
 export MKL_NUM_THREADS=${MKL_NUM_THREADS:-1}
 export OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}
 export NUMEXPR_NUM_THREADS=${NUMEXPR_NUM_THREADS:-1}
-export PYTHONPATH="$(pwd):${QWEN3_TTS_REPO}:${PYTHONPATH:-}"
+cd "${VERL_ROOT}"
+export PYTHONPATH="${VERL_ROOT}:${QWEN3_TTS_REPO}:${PYTHONPATH:-}"
 export REWARD_ASR_BACKEND
 export ASR_MODEL_PATH
 export ASR_DEVICE_INDEX
