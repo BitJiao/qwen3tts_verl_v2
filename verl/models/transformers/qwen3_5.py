@@ -18,12 +18,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
-from torch.distributed.tensor import DTensor
 from transformers.models.qwen3_5.modeling_qwen3_5 import (
     Qwen3_5CausalLMOutputWithPast,
     Qwen3_5ForConditionalGeneration,
 )
 
+from verl.utils.dtensor_compat import DTensor
 from verl.utils.ulysses import (
     get_ulysses_sequence_parallel_world_size,
     ulysses_pad_and_slice_inputs,

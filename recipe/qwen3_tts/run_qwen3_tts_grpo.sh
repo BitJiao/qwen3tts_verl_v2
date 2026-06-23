@@ -9,7 +9,14 @@ MODEL_PATH=${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}
 TRAIN_JSONL=${TRAIN_JSONL:-${QWEN3_TTS_REPO}/data/minds14_qwen3tts/zh-CN_grpo.jsonl}
 OUTPUT_DIR=${OUTPUT_DIR:-checkpoints/qwen3_tts_grpo}
 REWARD_FN=${REWARD_FN:-recipe.qwen3_tts.combined_reward:compute_score}
-PYTHON=${PYTHON:-python}
+VENV_DIR=${VENV_DIR:-${VERL_ROOT}/.venv}
+if [[ -z "${PYTHON:-}" ]]; then
+  if [[ -x "${VENV_DIR}/bin/python" ]]; then
+    PYTHON="${VENV_DIR}/bin/python"
+  else
+    PYTHON=python
+  fi
+fi
 ALGORITHM=${ALGORITHM:-grpo}
 DEVICE=${DEVICE:-cuda:0}
 ROLLOUT_DEVICES=${ROLLOUT_DEVICES:-}

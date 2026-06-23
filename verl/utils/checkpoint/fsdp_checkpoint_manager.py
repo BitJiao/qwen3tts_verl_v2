@@ -310,7 +310,14 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             if hasattr(model_config, "auto_map") and None in model_config.auto_map:
                 model_config.auto_map = {k: v for k, v in model_config.auto_map.items() if k is not None}
 
-            model_config.save_pretrained(hf_config_tokenizer_path)
+            try:
+                model_config.save_pretrained(hf_config_tokenizer_path)
+            except KeyError as exc:
+                if str(exc).strip("'\"") != "dtype":
+                    raise
+                # Some custom configs, including Qwen3-TTS under recent Transformers,
+                # fail the diff-based JSON path. Full JSON preserves the same config.
+                model_config.to_json_file(os.path.join(hf_config_tokenizer_path, "config.json"), use_diff=False)
             if self.processing_class is not None:
                 self.processing_class.save_pretrained(hf_config_tokenizer_path)
             log_with_rank(

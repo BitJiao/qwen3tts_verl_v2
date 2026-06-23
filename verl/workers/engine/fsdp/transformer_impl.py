@@ -30,7 +30,6 @@ from peft import LoraConfig, TaskType, get_peft_model
 from tensordict import TensorDict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, ShardedStateDictConfig, StateDictType
-from torch.distributed.tensor import DTensor
 
 import verl.utils.torch_functional as verl_F
 from verl.models.transformers.monkey_patch import apply_monkey_patch
@@ -41,6 +40,7 @@ from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
 from verl.utils.dataset.dataset_utils import DatasetPadMode
 from verl.utils.debug import log_gpu_memory_usage
 from verl.utils.device import get_device_id, get_device_name
+from verl.utils.dtensor_compat import DTensor
 from verl.utils.fsdp_utils import (
     CPUOffloadPolicy,
     FSDPModule,
@@ -133,6 +133,7 @@ def _qwen3_tts_finetune_forward(
     sub_talker_loss = F.cross_entropy(
         sub_talker_logits.reshape(-1, sub_talker_logits.size(-1)),
         sub_talker_labels.reshape(-1),
+        ignore_index=-100,
     )
     loss = codec_0_loss + sub_talker_loss_coef * sub_talker_loss
 

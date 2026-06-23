@@ -56,7 +56,7 @@ def main() -> None:
         if f"class {name}" not in modeling_source:
             _fail(f"qwen_tts.core.models.modeling_qwen3_tts is missing {name}")
     _ok("Qwen3-TTS modeling source contains required classes")
-    if "loss = F.cross_entropy(logits[loss_mask], labels[loss_mask])" not in modeling_source:
+    if "logits.reshape(-1, self.config.vocab_size)" not in modeling_source or "ignore_index=-100" not in modeling_source:
         _fail("Qwen3-TTS code predictor fine-tune loss is not patched. Run scripts/setup_qwen3tts_env.sh.")
     _ok("Qwen3-TTS code predictor fine-tune loss uses explicit CE")
 

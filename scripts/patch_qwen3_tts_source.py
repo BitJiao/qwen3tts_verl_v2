@@ -103,12 +103,12 @@ def _patch_modeling(repo: Path) -> bool:
         raise SystemExit(f"{path}: could not locate code predictor forward_finetune")
 
     segment = source[start:end]
-    old = (
+    original_loss = (
         "        loss = None\n"
         "        if labels is not None:\n"
         "            loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)\n"
     )
-    new = (
+    masked_loss = (
         "        loss = None\n"
         "        if labels is not None:\n"
         "            loss_mask = labels.ne(-100)\n"
@@ -117,12 +117,24 @@ def _patch_modeling(repo: Path) -> bool:
         "            else:\n"
         "                loss = logits.sum() * 0.0\n"
     )
-    if new in segment:
+    user_loss = (
+        "        loss = None\n"
+        "        if labels is not None:\n"
+        "            loss = F.cross_entropy(\n"
+        "                logits.reshape(-1, self.config.vocab_size),\n"
+        "                labels.reshape(-1),\n"
+        "                ignore_index=-100,\n"
+        "            )\n"
+    )
+    if user_loss in segment:
         return False
-    if old not in segment:
+    if original_loss in segment:
+        patched_segment = segment.replace(original_loss, user_loss, 1)
+    elif masked_loss in segment:
+        patched_segment = segment.replace(masked_loss, user_loss, 1)
+    else:
         raise SystemExit(f"{path}: could not find code predictor loss block")
 
-    patched_segment = segment.replace(old, new, 1)
     path.write_text(source[:start] + patched_segment + source[end:])
     return True
 

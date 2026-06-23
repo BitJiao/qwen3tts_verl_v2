@@ -477,6 +477,7 @@ def qwen3_tts_nll(model, batch: dict[str, torch.Tensor], sub_talker_loss_coef: f
     sub_talker_loss = F.cross_entropy(
         sub_talker_logits.reshape(-1, sub_talker_logits.size(-1)),
         sub_talker_labels.reshape(-1),
+        ignore_index=-100,
     )
     loss = codec_0_loss + sub_talker_loss_coef * sub_talker_loss
     return loss, codec_0_loss.detach(), sub_talker_loss.detach()

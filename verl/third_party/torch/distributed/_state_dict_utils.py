@@ -104,8 +104,12 @@ from torch.distributed._functional_collectives import AsyncCollectiveTensor
 if dist.is_available() or TYPE_CHECKING:
     from torch.distributed import distributed_c10d
     from torch.distributed._shard.sharded_tensor import ShardedTensor
-    from torch.distributed.tensor import DTensor, Replicate, distribute_tensor
-    from torch.distributed.tensor._utils import compute_local_shape_and_global_offset
+    from verl.utils.dtensor_compat import (
+        DTensor,
+        Replicate,
+        compute_local_shape_and_global_offset,
+        distribute_tensor,
+    )
 
 
 def _identity_func(

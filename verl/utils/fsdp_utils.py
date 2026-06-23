@@ -27,13 +27,13 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from packaging import version
-from torch.distributed import DeviceMesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp._runtime_utils import _lazy_init
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy, transformer_auto_wrap_policy
 from transformers.trainer_pt_utils import get_module_class_from_name
 
 from verl.utils.device import get_device_id, get_device_name, get_torch_device
+from verl.utils.dtensor_compat import DTensor, DTensorSpec, DeviceMesh, Shard
 from verl.utils.model import check_exclude_modules, check_target_modules
 
 logger = logging.getLogger(__name__)
@@ -41,8 +41,6 @@ logger = logging.getLogger(__name__)
 if version.parse(torch.__version__) >= version.parse("2.6"):
     from torch.distributed.fsdp import CPUOffloadPolicy, FSDPModule, MixedPrecisionPolicy, fully_shard
     from torch.distributed.fsdp._fully_shard._fsdp_init import _get_post_forward_mesh_info
-    from torch.distributed.tensor import DTensor, Shard
-    from torch.distributed.tensor._dtensor_spec import DTensorSpec
 
     fully_shard_module = torch.distributed.fsdp._fully_shard._fully_shard
 elif version.parse(torch.__version__) >= version.parse("2.4"):
