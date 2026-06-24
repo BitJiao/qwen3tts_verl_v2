@@ -3,7 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+source "${VERL_ROOT}/scripts/qwen3tts_common.sh"
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}"
+QWEN3_TTS_REPO="$(qwen3tts_abs_path "${QWEN3_TTS_REPO}" "${VERL_ROOT}")"
 
 cd "${VERL_ROOT}"
 mkdir -p logs checkpoints
@@ -14,9 +16,9 @@ LOG="${LOG:-logs/${ALGORITHM}_all_g8_eager_${TS}.log}"
 
 export QWEN3_TTS_REPO
 export ALGORITHM
-export MODEL_PATH="${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}"
-export TRAIN_JSONL="${TRAIN_JSONL:-${QWEN3_TTS_REPO}/data/minds14_qwen3tts_all/all_grpo.jsonl}"
-export OUTPUT_DIR="${OUTPUT_DIR:-${VERL_ROOT}/checkpoints/qwen3_tts_${ALGORITHM}_all_g8_eager_${TS}}"
+export MODEL_PATH="$(qwen3tts_abs_path "${MODEL_PATH:-models/Qwen3-TTS-12Hz-1.7B-Base}" "${VERL_ROOT}")"
+export TRAIN_JSONL="$(qwen3tts_abs_path "${TRAIN_JSONL:-${QWEN3_TTS_REPO}/data/minds14_qwen3tts_all/all_grpo.jsonl}" "${VERL_ROOT}")"
+export OUTPUT_DIR="$(qwen3tts_abs_path "${OUTPUT_DIR:-checkpoints/qwen3_tts_${ALGORITHM}_all_g8_eager_${TS}}" "${VERL_ROOT}")"
 export DEVICE="${DEVICE:-cuda:0}"
 export ROLLOUT_DEVICES="${ROLLOUT_DEVICES:-auto}"
 export GROUP_SIZE="${GROUP_SIZE:-8}"
@@ -26,7 +28,7 @@ export SAVE_FREQ="${SAVE_FREQ:-20}"
 export ATTN_IMPLEMENTATION="${ATTN_IMPLEMENTATION:-eager}"
 export REWARD_FN="${REWARD_FN:-recipe.qwen3_tts.combined_reward:compute_score}"
 export REWARD_ASR_BACKEND="${REWARD_ASR_BACKEND:-transformers}"
-export ASR_MODEL_PATH="${ASR_MODEL_PATH:-${VERL_ROOT}/models/openai-whisper-small}"
+export ASR_MODEL_PATH="$(qwen3tts_abs_path "${ASR_MODEL_PATH:-models/openai-whisper-small}" "${VERL_ROOT}")"
 export ASR_DEVICE_INDEX="${ASR_DEVICE_INDEX:-4}"
 export ASR_BATCH_SIZE="${ASR_BATCH_SIZE:-8}"
 export REWARD_WER_WEIGHT="${REWARD_WER_WEIGHT:-0.3}"
@@ -34,8 +36,8 @@ export REWARD_SIM_WEIGHT="${REWARD_SIM_WEIGHT:-0.2}"
 export REWARD_JUDGE_WEIGHT="${REWARD_JUDGE_WEIGHT:-0.5}"
 export REWARD_DURATION_WEIGHT="${REWARD_DURATION_WEIGHT:-0.0}"
 export SPEECHJUDGE_SERVER_URL="${SPEECHJUDGE_SERVER_URL:-http://127.0.0.1:8765}"
-export SPEECHJUDGE_REPO="${SPEECHJUDGE_REPO:-${QWEN3_TTS_REPO}/third_party/SpeechJudge}"
-export SPEECHJUDGE_MODEL_PATH="${SPEECHJUDGE_MODEL_PATH:-${QWEN3_TTS_REPO}/pretrained/SpeechJudge-GRM}"
+export SPEECHJUDGE_REPO="$(qwen3tts_abs_path "${SPEECHJUDGE_REPO:-${QWEN3_TTS_REPO}/third_party/SpeechJudge}" "${VERL_ROOT}")"
+export SPEECHJUDGE_MODEL_PATH="$(qwen3tts_abs_path "${SPEECHJUDGE_MODEL_PATH:-${QWEN3_TTS_REPO}/pretrained/SpeechJudge-GRM}" "${VERL_ROOT}")"
 
 echo "LOG=${LOG}"
 echo "OUTPUT_DIR=${OUTPUT_DIR}"

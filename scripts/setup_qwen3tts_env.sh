@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERL_REPO="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+source "${SCRIPT_DIR}/qwen3tts_common.sh"
 
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO:-${VERL_REPO}/third_party/Qwen3-TTS}"
 QWEN3_TTS_GIT="${QWEN3_TTS_GIT:-https://github.com/QwenLM/Qwen3-TTS.git}"
@@ -14,6 +15,8 @@ VENV_DIR="${VENV_DIR:-${VERL_REPO}/.venv}"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if command -v python3.11 >/dev/null 2>&1; then
     PYTHON_BIN=python3.11
+  elif command -v uv >/dev/null 2>&1; then
+    PYTHON_BIN=3.11
   else
     PYTHON_BIN=python3
   fi
@@ -22,11 +25,43 @@ MODEL_PATH="${MODEL_PATH:-${VERL_REPO}/models/Qwen3-TTS-12Hz-1.7B-Base}"
 MODEL_ID="${MODEL_ID:-Qwen/Qwen3-TTS-12Hz-1.7B-Base}"
 DOWNLOAD_MODEL="${DOWNLOAD_MODEL:-0}"
 HF_ENDPOINT="${HF_ENDPOINT:-}"
-TORCH_SPEC="${TORCH_SPEC:-torch==2.3.1 torchaudio==2.3.1}"
+TORCH_PROFILE="${TORCH_PROFILE:-cu121-verified}"
+TORCH_SPEC="${TORCH_SPEC:-}"
 TORCH_INDEX_URL="${TORCH_INDEX_URL:-}"
 RUNTIME_REQUIREMENTS="${RUNTIME_REQUIREMENTS:-${VERL_REPO}/requirements-qwen3tts-verl.txt}"
 
-if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+QWEN3_TTS_REPO="$(qwen3tts_abs_path "${QWEN3_TTS_REPO}" "${VERL_REPO}")"
+QWEN3_TTS_SOURCE_DIR="$(qwen3tts_abs_path "${QWEN3_TTS_SOURCE_DIR}" "${VERL_REPO}")"
+QWEN3_TTS_SOURCE_ARCHIVE="$(qwen3tts_abs_path "${QWEN3_TTS_SOURCE_ARCHIVE}" "${VERL_REPO}")"
+VENV_DIR="$(qwen3tts_abs_path "${VENV_DIR}" "${VERL_REPO}")"
+MODEL_PATH="$(qwen3tts_abs_path "${MODEL_PATH}" "${VERL_REPO}")"
+RUNTIME_REQUIREMENTS="$(qwen3tts_abs_path "${RUNTIME_REQUIREMENTS}" "${VERL_REPO}")"
+
+if [[ -z "${TORCH_SPEC}" ]]; then
+  case "${TORCH_PROFILE}" in
+    cu121-verified|default)
+      TORCH_SPEC="torch==2.3.1 torchaudio==2.3.1"
+      ;;
+    cu130|cuda130)
+      TORCH_SPEC="torch==2.10.0 torchaudio==2.10.0"
+      TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}"
+      ;;
+    cu132-nightly|cuda132-nightly)
+      TORCH_SPEC="--pre torch torchaudio"
+      TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/nightly/cu132}"
+      ;;
+    skip)
+      TORCH_SPEC="skip"
+      ;;
+    *)
+      echo "Unknown TORCH_PROFILE=${TORCH_PROFILE}" >&2
+      echo "Use cu121-verified, cu130, cu132-nightly, skip, or set TORCH_SPEC directly." >&2
+      exit 1
+      ;;
+  esac
+fi
+
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1 && ! command -v uv >/dev/null 2>&1; then
   echo "${PYTHON_BIN} is required. Set PYTHON_BIN=/path/to/python if needed." >&2
   exit 1
 fi

@@ -3,10 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+source "${VERL_ROOT}/scripts/qwen3tts_common.sh"
 
 MODEL_PATH=${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}
 QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}
 VENV_DIR=${VENV_DIR:-${VERL_ROOT}/.venv}
+MODEL_PATH="$(qwen3tts_abs_path "${MODEL_PATH}" "${VERL_ROOT}")"
+QWEN3_TTS_REPO="$(qwen3tts_abs_path "${QWEN3_TTS_REPO}" "${VERL_ROOT}")"
+VENV_DIR="$(qwen3tts_abs_path "${VENV_DIR}" "${VERL_ROOT}")"
 if [[ -z "${PYTHON:-}" ]]; then
   if [[ -x "${VENV_DIR}/bin/python" ]]; then
     PYTHON="${VENV_DIR}/bin/python"
@@ -16,6 +20,10 @@ if [[ -z "${PYTHON:-}" ]]; then
 fi
 TRAIN_JSONL=${TRAIN_JSONL:-train_with_codes.jsonl}
 VAL_JSONL=${VAL_JSONL:-}
+TRAIN_JSONL="$(qwen3tts_abs_path "${TRAIN_JSONL}" "${VERL_ROOT}")"
+if [[ -n "${VAL_JSONL}" ]]; then
+  VAL_JSONL="$(qwen3tts_abs_path "${VAL_JSONL}" "${VERL_ROOT}")"
+fi
 PROJECT_NAME=${PROJECT_NAME:-qwen3-tts-sft}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_tts_12hz_base}
 NNODES=${NNODES:-1}

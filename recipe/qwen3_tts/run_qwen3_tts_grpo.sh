@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+source "${VERL_ROOT}/scripts/qwen3tts_common.sh"
 
 QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}
 MODEL_PATH=${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}
@@ -10,6 +11,11 @@ TRAIN_JSONL=${TRAIN_JSONL:-${QWEN3_TTS_REPO}/data/minds14_qwen3tts/zh-CN_grpo.js
 OUTPUT_DIR=${OUTPUT_DIR:-checkpoints/qwen3_tts_grpo}
 REWARD_FN=${REWARD_FN:-recipe.qwen3_tts.combined_reward:compute_score}
 VENV_DIR=${VENV_DIR:-${VERL_ROOT}/.venv}
+QWEN3_TTS_REPO="$(qwen3tts_abs_path "${QWEN3_TTS_REPO}" "${VERL_ROOT}")"
+MODEL_PATH="$(qwen3tts_abs_path "${MODEL_PATH}" "${VERL_ROOT}")"
+TRAIN_JSONL="$(qwen3tts_abs_path "${TRAIN_JSONL}" "${VERL_ROOT}")"
+OUTPUT_DIR="$(qwen3tts_abs_path "${OUTPUT_DIR}" "${VERL_ROOT}")"
+VENV_DIR="$(qwen3tts_abs_path "${VENV_DIR}" "${VERL_ROOT}")"
 if [[ -z "${PYTHON:-}" ]]; then
   if [[ -x "${VENV_DIR}/bin/python" ]]; then
     PYTHON="${VENV_DIR}/bin/python"
@@ -46,6 +52,7 @@ RAY_PG_TIMEOUT_S=${RAY_PG_TIMEOUT_S:-1800}
 RAY_REWARD_ON_WORKER=${RAY_REWARD_ON_WORKER:-0}
 REWARD_ASR_BACKEND=${REWARD_ASR_BACKEND:-transformers}
 ASR_MODEL_PATH=${ASR_MODEL_PATH:-${VERL_ROOT}/models/openai-whisper-small}
+ASR_MODEL_PATH="$(qwen3tts_abs_path "${ASR_MODEL_PATH}" "${VERL_ROOT}")"
 ASR_DEVICE_INDEX=${ASR_DEVICE_INDEX:-0}
 ASR_BATCH_SIZE=${ASR_BATCH_SIZE:-8}
 REWARD_WER_WEIGHT=${REWARD_WER_WEIGHT:-0.3}

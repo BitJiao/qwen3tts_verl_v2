@@ -22,11 +22,14 @@ Use the repo-level setup script from a clean clone:
 apt-get update
 apt-get install -y ffmpeg
 
+VENV_DIR=.venv \
+PYTHON_BIN=3.11 \
+TORCH_PROFILE=cu121-verified \
 bash scripts/setup_qwen3tts_env.sh
 source .venv/bin/activate
-export QWEN3_TTS_REPO="$(pwd)/third_party/Qwen3-TTS"
+export QWEN3_TTS_REPO=third_party/Qwen3-TTS
 export VERL_REPO="$(pwd)"
-export MODEL_PATH="$(pwd)/models/Qwen3-TTS-12Hz-1.7B-Base"
+export MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base
 
 python scripts/check_qwen3_tts_env.py
 ```
@@ -34,15 +37,18 @@ python scripts/check_qwen3_tts_env.py
 Set `DOWNLOAD_MODEL=1` when running the setup script if the Base checkpoint is
 not already available locally.
 
-The setup script creates one shared `.venv` for Qwen3-TTS and verl. It pins
-`torch==2.3.1` and `torchaudio==2.3.1` by default and installs the fully pinned
-runtime in `requirements-qwen3tts-verl.txt`, including `librosa==0.11.0` and
-`numpy==1.26.4`. It also supports offline Qwen3-TTS source installation from
-`models/sources/Qwen3-TTS-source.tar.gz`. Use `TORCH_SPEC` and
-`TORCH_INDEX_URL` to override the Torch wheel selection. Set `TORCH_SPEC=skip`
-only when the selected `.venv` already has compatible `torch` and `torchaudio`.
-It also patches the cloned Qwen3-TTS source so the upstream 12 Hz SFT script and
-code-predictor fine-tune loss match this recipe's loss implementation.
+The setup script creates one shared `.venv` for Qwen3-TTS and verl. It pins the
+verified `torch==2.3.1`/`torchaudio==2.3.1` stack by default and installs the
+fully pinned runtime in `requirements-qwen3tts-verl.txt`, including
+`librosa==0.11.0` and `numpy==1.26.4`. For a server with NVIDIA driver 593 and
+CUDA 13 support, run with `TORCH_PROFILE=cu130`. For PyTorch nightly CUDA 13.2
+wheels, run with `TORCH_PROFILE=cu132-nightly`. It also supports offline
+Qwen3-TTS source installation from `models/sources/Qwen3-TTS-source.tar.gz`.
+Use `TORCH_SPEC` and `TORCH_INDEX_URL` to override the Torch wheel selection.
+Set `TORCH_PROFILE=skip` only when the selected `.venv` already has compatible
+`torch` and `torchaudio`. It also patches the cloned Qwen3-TTS source so the
+upstream 12 Hz SFT script and code-predictor fine-tune loss match this recipe's
+loss implementation.
 
 SpeechJudge is not part of this environment. Keep it separate and use the HTTP
 server flow in `SPEECHJUDGE_SETUP.md`.
@@ -71,8 +77,10 @@ cd "${VERL_REPO}"
 
 MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=/path/to/train_with_codes.jsonl \
-N_GPUS_PER_NODE=1 \
+TRAIN_JSONL=data/train_with_codes.jsonl \
+N_GPUS_PER_NODE=8 \
+TRAIN_BATCH_SIZE=8 \
+MICRO_BATCH_SIZE_PER_GPU=1 \
 bash recipe/qwen3_tts/run_qwen3_tts_sft_fsdp.sh
 ```
 
@@ -84,13 +92,13 @@ cd "${VERL_REPO}"
 python -m recipe.qwen3_tts.export_custom_voice \
   --checkpoint_dir checkpoints/qwen3-tts-sft/qwen3_tts_12hz_base/global_step_100 \
   --base_model_dir "${MODEL_PATH}" \
-  --output_dir /path/to/qwen3_tts_custom_voice \
+  --output_dir exports/qwen3_tts_custom_voice \
   --speaker_name speaker_test \
-  --train_jsonl /path/to/train_with_codes.jsonl \
+  --train_jsonl data/train_with_codes.jsonl \
   --overwrite
 ```
 
-Use `--ref_audio /path/to/ref.wav` instead of `--train_jsonl` to choose the
+Use `--ref_audio data/ref.wav` instead of `--train_jsonl` to choose the
 reference audio explicitly. Reference audio must be 24 kHz.
 
 ## RL Data
@@ -112,7 +120,11 @@ cd "${VERL_REPO}"
 
 MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=/path/to/train_grpo.jsonl \
+TRAIN_JSONL=data/train_grpo.jsonl \
+OUTPUT_DIR=checkpoints/qwen3_tts_grpo_smoke \
+USE_RAY=0 \
+DEVICE=cuda:0 \
+ROLLOUT_DEVICES=cuda:0 \
 GROUP_SIZE=2 \
 PROMPT_BATCH_SIZE=1 \
 MAX_STEPS=1 \
@@ -125,7 +137,10 @@ bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 
 ```bash
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=/path/to/train_grpo.jsonl \
+TRAIN_JSONL=data/train_grpo.jsonl \
+ROLLOUT_DEVICES=auto \
+REWARD_ASR_BACKEND=none \
+REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
 MAX_STEPS=10 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
@@ -144,7 +159,7 @@ Generate SeedTTS-format audio on all visible GPUs:
 ```bash
 MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-INPUT_JSONL=/path/to/seedtts/meta.lst \
+INPUT_JSONL=data/seedtts/meta.lst \
 OUTPUT_DIR=results/qwen3_tts_seedtts \
 DEVICES=auto \
 OVERWRITE=1 \

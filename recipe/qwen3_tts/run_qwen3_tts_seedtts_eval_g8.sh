@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERL_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+source "${VERL_ROOT}/scripts/qwen3tts_common.sh"
 
 QWEN3_TTS_REPO=${QWEN3_TTS_REPO:-${VERL_ROOT}/third_party/Qwen3-TTS}
 MODEL_PATH=${MODEL_PATH:-${VERL_ROOT}/models/Qwen3-TTS-12Hz-1.7B-Base}
@@ -11,6 +12,13 @@ OUTPUT_DIR=${OUTPUT_DIR:-${VERL_ROOT}/results/qwen3_tts_seedtts}
 DEVICES=${DEVICES:-auto}
 OVERWRITE=${OVERWRITE:-0}
 VENV_DIR=${VENV_DIR:-${VERL_ROOT}/.venv}
+QWEN3_TTS_REPO="$(qwen3tts_abs_path "${QWEN3_TTS_REPO}" "${VERL_ROOT}")"
+MODEL_PATH="$(qwen3tts_abs_path "${MODEL_PATH}" "${VERL_ROOT}")"
+if [[ -n "${INPUT_JSONL}" ]]; then
+  INPUT_JSONL="$(qwen3tts_abs_path "${INPUT_JSONL}" "${VERL_ROOT}")"
+fi
+OUTPUT_DIR="$(qwen3tts_abs_path "${OUTPUT_DIR}" "${VERL_ROOT}")"
+VENV_DIR="$(qwen3tts_abs_path "${VENV_DIR}" "${VERL_ROOT}")"
 if [[ -z "${PYTHON:-}" ]]; then
   if [[ -x "${VENV_DIR}/bin/python" ]]; then
     PYTHON="${VENV_DIR}/bin/python"
@@ -20,7 +28,7 @@ if [[ -z "${PYTHON:-}" ]]; then
 fi
 
 if [[ -z "${INPUT_JSONL}" ]]; then
-  echo "Set INPUT_JSONL=/path/to/seedtts.jsonl or SEEDTTS_META=/path/to/meta.lst" >&2
+  echo "Set INPUT_JSONL=data/seedtts/meta.lst or SEEDTTS_META=data/seedtts/meta.lst" >&2
   exit 1
 fi
 

@@ -17,24 +17,30 @@ environment lives at `.venv`, and model weights live under `models/`.
 
 ## Install From A Clean Clone
 
-System dependency:
+All paths below are relative to the repository root unless explicitly noted.
+Install the only required system package first:
 
 ```bash
 apt-get update
 apt-get install -y ffmpeg
 ```
 
-Clone this repo and run the setup script:
+Clone this repo, create one uv environment, and install the bundled
+Qwen3-TTS source plus this verl fork:
 
 ```bash
 git clone https://github.com/BitJiao/qwen3tts_verl_v2.git
 cd qwen3tts_verl_v2
 
+VENV_DIR=.venv \
+PYTHON_BIN=3.11 \
+TORCH_PROFILE=cu121-verified \
 bash scripts/setup_qwen3tts_env.sh
+
 source .venv/bin/activate
-export QWEN3_TTS_REPO="$(pwd)/third_party/Qwen3-TTS"
+export QWEN3_TTS_REPO=third_party/Qwen3-TTS
 export VERL_REPO="$(pwd)"
-export MODEL_PATH="$(pwd)/models/Qwen3-TTS-12Hz-1.7B-Base"
+export MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base
 
 python scripts/check_qwen3_tts_env.py
 ```
@@ -46,23 +52,41 @@ that archive into `third_party/Qwen3-TTS` automatically. You can also provide a
 different local checkout or archive:
 
 ```bash
-QWEN3_TTS_REPO=/path/to/Qwen3-TTS bash scripts/setup_qwen3tts_env.sh
-QWEN3_TTS_SOURCE_ARCHIVE=/path/to/Qwen3-TTS-source.tar.gz bash scripts/setup_qwen3tts_env.sh
+QWEN3_TTS_REPO=third_party/Qwen3-TTS bash scripts/setup_qwen3tts_env.sh
+QWEN3_TTS_SOURCE_ARCHIVE=models/sources/Qwen3-TTS-source.tar.gz bash scripts/setup_qwen3tts_env.sh
 ```
 
 The verified runtime stack is Python 3.11, `torch==2.3.1+cu121`,
 `torchaudio==2.3.1+cu121`, and `numpy==1.26.4` on NVIDIA driver 535.104.05.
 The setup script installs `torch==2.3.1` and `torchaudio==2.3.1` before the
 rest of the pinned dependencies in `requirements-qwen3tts-verl.txt`, so pip
-does not resolve to an untested Torch/CUDA 13 or NumPy 2.x stack. Override with
-`TORCH_SPEC` and `TORCH_INDEX_URL` if your machine needs a different wheel
-source. Set `TORCH_SPEC=skip` only if `.venv` already has compatible `torch`
-and `torchaudio`.
+does not resolve to an untested Torch/CUDA 13 or NumPy 2.x stack.
 
-The environment rebuilt and checked on this host was
-`/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623`. Local setup and smoke
-logs are under `logs/env_rebuild_20260623_1412/` in the working copy and are
-ignored by git.
+For a newer server with NVIDIA driver 593 and CUDA 13.2 runtime support, use a
+high-version PyTorch profile explicitly:
+
+```bash
+VENV_DIR=.venv-cu130 \
+PYTHON_BIN=3.11 \
+TORCH_PROFILE=cu130 \
+bash scripts/setup_qwen3tts_env.sh
+```
+
+`TORCH_PROFILE=cu130` installs `torch==2.10.0` and `torchaudio==2.10.0` from
+the PyTorch `cu130` wheel index. If you specifically need CUDA 13.2 nightly
+wheels, use:
+
+```bash
+VENV_DIR=.venv-cu132 \
+PYTHON_BIN=3.11 \
+TORCH_PROFILE=cu132-nightly \
+bash scripts/setup_qwen3tts_env.sh
+```
+
+The CUDA 13.2 profile uses the PyTorch nightly `cu132` wheel index and should be
+treated as a preview stack. You can always override the wheel selection with
+`TORCH_SPEC` and `TORCH_INDEX_URL`, or set `TORCH_PROFILE=skip` only when the
+selected venv already has compatible `torch` and `torchaudio`.
 
 The script also patches the cloned Qwen3-TTS source under `third_party/Qwen3-TTS`
 so its 12 Hz fine-tuning path uses `talker.text_projection(...)` and explicit CE
@@ -85,7 +109,7 @@ HF_ENDPOINT=https://hf-mirror.com DOWNLOAD_MODEL=1 bash scripts/setup_qwen3tts_e
 Do not install this repo from `Qwen3-TTS-main/verl-main`; that path was from an
 older local checkout and is not valid for a clean clone of this repository.
 
-For an existing Qwen3-TTS checkout, set `QWEN3_TTS_REPO=/path/to/Qwen3-TTS`
+For an existing Qwen3-TTS checkout, set `QWEN3_TTS_REPO=third_party/Qwen3-TTS`
 before running `scripts/setup_qwen3tts_env.sh`.
 
 Model weights should live under `models/`, for example
@@ -122,13 +146,18 @@ RL rows need text plus a 24 kHz reference audio:
 
 ## SFT
 
+Use a relative JSONL path:
+
 ```bash
 cd "${VERL_REPO}"
 
-MODEL_PATH="${MODEL_PATH}" \
-QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=/path/to/train_with_codes.jsonl \
-N_GPUS_PER_NODE=1 \
+MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
+QWEN3_TTS_REPO=third_party/Qwen3-TTS \
+TRAIN_JSONL=data/train_with_codes.jsonl \
+N_GPUS_PER_NODE=8 \
+TRAIN_BATCH_SIZE=8 \
+MICRO_BATCH_SIZE_PER_GPU=1 \
+TOTAL_EPOCHS=1 \
 bash recipe/qwen3_tts/run_qwen3_tts_sft_fsdp.sh
 ```
 
@@ -141,14 +170,18 @@ raise a mixed `requires_grad` flattening error.
 
 ## RL
 
-Basic smoke run:
+Single-process GRPO smoke:
 
 ```bash
 cd "${VERL_REPO}"
 
-MODEL_PATH="${MODEL_PATH}" \
-QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=/path/to/train_grpo.jsonl \
+MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
+QWEN3_TTS_REPO=third_party/Qwen3-TTS \
+TRAIN_JSONL=data/train_grpo.jsonl \
+OUTPUT_DIR=checkpoints/qwen3_tts_grpo_smoke \
+USE_RAY=0 \
+DEVICE=cuda:0 \
+ROLLOUT_DEVICES=cuda:0 \
 GROUP_SIZE=2 \
 PROMPT_BATCH_SIZE=1 \
 MAX_STEPS=1 \
@@ -157,11 +190,15 @@ REWARD_ASR_BACKEND=none \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```
 
-8-rollout script:
+8-GPU Ray rollout GRPO:
 
 ```bash
-QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=/path/to/train_grpo.jsonl \
+MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
+QWEN3_TTS_REPO=third_party/Qwen3-TTS \
+TRAIN_JSONL=data/train_grpo.jsonl \
+ROLLOUT_DEVICES=auto \
+REWARD_ASR_BACKEND=none \
+REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
 MAX_STEPS=10 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
@@ -191,9 +228,9 @@ Generate Qwen3-TTS outputs for a SeedTTS `meta.lst` or JSONL on all visible
 GPUs:
 
 ```bash
-QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-MODEL_PATH="${MODEL_PATH}" \
-INPUT_JSONL=/path/to/seedtts/meta.lst \
+QWEN3_TTS_REPO=third_party/Qwen3-TTS \
+MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
+INPUT_JSONL=data/seedtts/meta.lst \
 DEVICES=auto \
 OVERWRITE=1 \
 OUTPUT_DIR=results/qwen3_tts_seedtts \
