@@ -134,6 +134,8 @@ outputs
 
 # local source checkouts, environments, and model downloads
 /third_party/
-/models/
+/models/*
+!/models/sources/
+!/models/sources/**
 /pretrained/
 /.speechjudge-venv/

@@ -77,6 +77,11 @@ def main() -> None:
         _fail("recipe.qwen3_tts.grpo_trainer does not use explicit sub-talker CE loss")
     _ok("Qwen3-TTS RL loss uses text_projection plus explicit codec/sub-talker CE")
 
+    sft_script = (repo_root / "recipe" / "qwen3_tts" / "run_qwen3_tts_sft_fsdp.sh").read_text()
+    if "engine.use_orig_params=true" not in sft_script:
+        _fail("recipe/qwen3_tts/run_qwen3_tts_sft_fsdp.sh must set engine.use_orig_params=true")
+    _ok("Qwen3-TTS SFT script enables FSDP use_orig_params")
+
     print(f"[OK] python: {sys.executable}")
 
 

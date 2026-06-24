@@ -43,6 +43,7 @@ export PYTHONPATH="${VERL_ROOT}:${QWEN3_TTS_REPO}:${PYTHONPATH:-}"
   engine.model_dtype=bf16 \
   engine.dtype=bfloat16 \
   engine.use_torch_compile=false \
+  engine.use_orig_params=true \
   +engine.use_dynamic_bsz=false \
   +engine.micro_batch_size_per_gpu="${MICRO_BATCH_SIZE_PER_GPU}" \
   +engine.max_token_len_per_gpu="${MAX_TOKEN_LEN_PER_GPU}" \

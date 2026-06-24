@@ -1,132 +1,105 @@
 # qwen3tts_verl_v2
 
-This repository is a trimmed verl fork for Qwen3-TTS post-training. The
-supported paths are:
+Qwen3-TTS 12Hz Base post-training recipe on top of verl.
 
-- Qwen3-TTS SFT with verl FSDP.
-- Qwen3-TTS GRPO/PPO/GSPO style RL.
-- WER/speaker-sim reward, with SpeechJudge kept in a separate environment.
+This repository is a verl fork with one supported target: Qwen3-TTS SFT and
+voice-clone RL. A clean clone is expected to become one working directory:
+Qwen3-TTS source is cloned into `third_party/Qwen3-TTS`, the shared Python
+environment lives at `.venv`, and model weights live under `models/`.
 
-The environment used for Qwen3-TTS and verl is one shared Python venv. Do not
-install SpeechJudge into this venv because its dependencies conflict.
+## What Works
 
-## Verified Environment
+- Qwen3-TTS SFT through the verl FSDP engine.
+- GRPO/PPO/GSPO-style voice-clone RL runner.
+- Ray multi-GPU rollout workers.
+- WER/speaker-sim reward, plus optional SpeechJudge through a separate server.
+- FSDP checkpoint export to Qwen3-TTS `custom_voice` layout.
 
-The uv environment rebuilt and checked on this host is:
+## Install From A Clean Clone
 
-```bash
-/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623
-```
-
-Important versions:
-
-```text
-Python 3.11.15
-torch==2.3.1+cu121
-torchaudio==2.3.1+cu121
-transformers==4.57.3
-numpy==1.26.4
-gradio==6.17.3
-ray==2.55.1
-qwen-tts==0.1.1
-verl==0.9.0.dev0
-```
-
-The full setup/check logs are under:
-
-```bash
-logs/env_rebuild_20260623_1412/
-```
-
-These logs are local and intentionally ignored by git.
-
-## System Packages
-
-Install ffmpeg before running audio workflows:
+System dependency:
 
 ```bash
 apt-get update
 apt-get install -y ffmpeg
 ```
 
-The checks require both `/usr/bin/ffmpeg` and `/usr/bin/ffprobe` on `PATH`.
-
-## Clean uv Install
-
-From a clean clone:
+Clone this repo and run the setup script:
 
 ```bash
 git clone https://github.com/BitJiao/qwen3tts_verl_v2.git
 cd qwen3tts_verl_v2
+
+bash scripts/setup_qwen3tts_env.sh
+source .venv/bin/activate
+export QWEN3_TTS_REPO="$(pwd)/third_party/Qwen3-TTS"
+export VERL_REPO="$(pwd)"
+export MODEL_PATH="$(pwd)/models/Qwen3-TTS-12Hz-1.7B-Base"
+
+python scripts/check_qwen3_tts_env.py
 ```
 
-If `python3.11` is already on `PATH`, use:
+The repository includes a small Qwen3-TTS source archive at
+`models/sources/Qwen3-TTS-source.tar.gz`. On machines where `git clone
+https://github.com/QwenLM/Qwen3-TTS.git` is blocked, the setup script extracts
+that archive into `third_party/Qwen3-TTS` automatically. You can also provide a
+different local checkout or archive:
 
 ```bash
-VENV_DIR=/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623 \
-QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
-DOWNLOAD_MODEL=0 \
-bash scripts/setup_qwen3tts_env.sh
+QWEN3_TTS_REPO=/path/to/Qwen3-TTS bash scripts/setup_qwen3tts_env.sh
+QWEN3_TTS_SOURCE_ARCHIVE=/path/to/Qwen3-TTS-source.tar.gz bash scripts/setup_qwen3tts_env.sh
 ```
 
-On this host, Python 3.11 came from uv, so the exact verified command was:
+The verified runtime stack is Python 3.11, `torch==2.3.1+cu121`,
+`torchaudio==2.3.1+cu121`, and `numpy==1.26.4` on NVIDIA driver 535.104.05.
+The setup script installs `torch==2.3.1` and `torchaudio==2.3.1` before the
+rest of the pinned dependencies in `requirements-qwen3tts-verl.txt`, so pip
+does not resolve to an untested Torch/CUDA 13 or NumPy 2.x stack. Override with
+`TORCH_SPEC` and `TORCH_INDEX_URL` if your machine needs a different wheel
+source. Set `TORCH_SPEC=skip` only if `.venv` already has compatible `torch`
+and `torchaudio`.
 
-```bash
-VENV_DIR=/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623 \
-PYTHON_BIN=/root/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/bin/python3.11 \
-TORCH_SPEC="torch==2.3.1 torchaudio==2.3.1" \
-QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
-DOWNLOAD_MODEL=0 \
-bash scripts/setup_qwen3tts_env.sh
-```
+The environment rebuilt and checked on this host was
+`/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623`. Local setup and smoke
+logs are under `logs/env_rebuild_20260623_1412/` in the working copy and are
+ignored by git.
 
-What the setup script does:
+The script also patches the cloned Qwen3-TTS source under `third_party/Qwen3-TTS`
+so its 12 Hz fine-tuning path uses `talker.text_projection(...)` and explicit CE
+loss. Existing Qwen3-TTS git checkouts are reused by default; set
+`QWEN3_TTS_UPDATE=1` only when you intentionally want to update a clean checkout
+before patching it again.
 
-1. Reuses or clones Qwen3-TTS into `QWEN3_TTS_REPO`.
-2. Creates `VENV_DIR` with `uv venv` when uv is available.
-3. Installs `torch==2.3.1` and `torchaudio==2.3.1`.
-4. Installs `requirements-qwen3tts-verl.txt` with Torch and NumPy constrained.
-5. Installs Qwen3-TTS editable with `pip install --no-deps -e`.
-6. Installs this verl fork editable with `pip install -e`.
-7. Patches Qwen3-TTS source so the Qwen3-TTS fine-tune loss matches this recipe.
-
-If you want the script to download the Base model:
+Optional model download:
 
 ```bash
 DOWNLOAD_MODEL=1 bash scripts/setup_qwen3tts_env.sh
 ```
 
-If Hugging Face is slow:
+If Hugging Face is slow, pass your mirror:
 
 ```bash
 HF_ENDPOINT=https://hf-mirror.com DOWNLOAD_MODEL=1 bash scripts/setup_qwen3tts_env.sh
 ```
 
-## Activate And Check
+Do not install this repo from `Qwen3-TTS-main/verl-main`; that path was from an
+older local checkout and is not valid for a clean clone of this repository.
 
-```bash
-source /opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623/bin/activate
-export QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main
-export MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base
-cd /opt/data/private/jsj/qwen3tts_verl_v2
+For an existing Qwen3-TTS checkout, set `QWEN3_TTS_REPO=/path/to/Qwen3-TTS`
+before running `scripts/setup_qwen3tts_env.sh`.
 
-python scripts/check_qwen3_tts_env.py
-```
+Model weights should live under `models/`, for example
+`models/Qwen3-TTS-12Hz-1.7B-Base`. Additional model weights can be added as
+separate subdirectories under `models/`; keep source archives under
+`models/sources/`.
 
-Expected key lines:
+SpeechJudge is intentionally not installed by this script because it needs a
+newer/conflicting stack. Run it in a separate environment and call it through
+the local HTTP server described in `recipe/qwen3_tts/SPEECHJUDGE_SETUP.md`.
 
-```text
-[OK] verl imports from this repo
-[OK] qwen_tts is installed from
-[OK] Qwen3-TTS code predictor fine-tune loss uses explicit CE
-[OK] Qwen3-TTS RL loss uses text_projection plus explicit codec/sub-talker CE
-```
+## Data
 
-## SFT Data
-
-SFT JSONL rows must contain Qwen3-TTS audio codes:
+SFT rows must contain Qwen3-TTS audio codes:
 
 ```json
 {"audio":"./utt.wav","text":"...","ref_audio":"./ref.wav","audio_codes":[[...]]}
@@ -141,92 +114,121 @@ python "${QWEN3_TTS_REPO}/finetuning/prepare_data.py" \
   --output_jsonl train_with_codes.jsonl
 ```
 
-## Run SFT
-
-Smoke run:
-
-```bash
-CUDA_VISIBLE_DEVICES=1 \
-VENV_DIR=/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623 \
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
-QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \
-TRAIN_JSONL=/path/to/train_with_codes.jsonl \
-N_GPUS_PER_NODE=1 \
-TRAIN_BATCH_SIZE=1 \
-MICRO_BATCH_SIZE_PER_GPU=1 \
-TOTAL_EPOCHS=1 \
-bash recipe/qwen3_tts/run_qwen3_tts_sft_fsdp.sh
-```
-
-The verified full local SFT run used 8 samples and completed 8 steps. Its local
-log is:
-
-```bash
-logs/sft_full_20260623_1408/run_sft_full.log
-```
-
-## RL Data
-
-RL JSONL rows need text plus a 24 kHz reference audio:
+RL rows need text plus a 24 kHz reference audio:
 
 ```json
 {"text":"She said she would be here by noon.","ref_audio":"./ref.wav","language":"Auto","target_duration":4.0}
 ```
 
-## Run GRPO
-
-Single-GPU smoke run without ASR:
+## SFT
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 \
-VENV_DIR=/opt/data/private/jsj/envs/qwen3tts_verl_uv_20260623 \
-MODEL_PATH=/opt/data/private/jsj/Qwen3-TTS-12Hz-1.7B-Base \
-QWEN3_TTS_REPO=/opt/data/private/jsj/Qwen3-TTS-main \
+cd "${VERL_REPO}"
+
+MODEL_PATH="${MODEL_PATH}" \
+QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
+TRAIN_JSONL=/path/to/train_with_codes.jsonl \
+N_GPUS_PER_NODE=1 \
+bash recipe/qwen3_tts/run_qwen3_tts_sft_fsdp.sh
+```
+
+The Qwen3-TTS loss is implemented in `FSDPEngineWithQwen3TTS`; it does not use
+verl's generic LLM SFT loss.
+
+The SFT script sets `engine.use_orig_params=true` because Qwen3-TTS has frozen
+code-predictor parameters mixed with trainable parameters. FSDP can otherwise
+raise a mixed `requires_grad` flattening error.
+
+## RL
+
+Basic smoke run:
+
+```bash
+cd "${VERL_REPO}"
+
+MODEL_PATH="${MODEL_PATH}" \
+QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
 TRAIN_JSONL=/path/to/train_grpo.jsonl \
-OUTPUT_DIR=/path/to/grpo_out \
-USE_RAY=0 \
-DEVICE=cuda:0 \
-ROLLOUT_DEVICES=cuda:0 \
 GROUP_SIZE=2 \
 PROMPT_BATCH_SIZE=1 \
 MAX_STEPS=1 \
 REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
 REWARD_ASR_BACKEND=none \
-ATTN_IMPLEMENTATION=eager \
-MAX_NEW_TOKENS=64 \
 bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```
 
-Use `MAX_STEPS=-1` for a full epoch.
-
-## SpeechJudge
-
-SpeechJudge is intentionally separate. Use a separate environment and call it
-through the HTTP flow in:
+8-rollout script:
 
 ```bash
-recipe/qwen3_tts/SPEECHJUDGE_SETUP.md
+QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
+TRAIN_JSONL=/path/to/train_grpo.jsonl \
+MAX_STEPS=10 \
+bash recipe/qwen3_tts/run_qwen3_tts_grpo_all_g8_eager.sh
 ```
 
-## Qwen3-TTS Loss Fixes
+Use `MAX_STEPS=-1` for a full epoch. `ROLLOUT_DEVICES=auto` uses all visible
+CUDA devices; set `CUDA_VISIBLE_DEVICES` or `ROLLOUT_DEVICES=cuda:0,cuda:1` to
+control placement.
 
-The supported training logic matches `/opt/data/private/jsj/modeling_qwen3_tts.py`:
+## Rewards
 
-- `talker.text_projection(...)` is applied to text embeddings.
-- Codec-0 loss uses explicit `F.cross_entropy(..., ignore_index=-100)`.
-- Sub-talker loss also uses explicit `F.cross_entropy(..., ignore_index=-100)`.
-- The Qwen3-TTS code predictor fine-tune loss is patched to:
+Default 8-rollout scripts use:
 
-```python
-F.cross_entropy(
-    logits.reshape(-1, self.config.vocab_size),
-    labels.reshape(-1),
-    ignore_index=-100,
-)
+```text
+recipe.qwen3_tts.combined_reward:compute_score
 ```
 
-Implementation locations:
+It combines WER, MFCC similarity, and optional SpeechJudge-GRM. For a first
+environment check, set `REWARD_ASR_BACKEND=none` or use
+`recipe.qwen3_tts.wer_sim_reward:compute_score`.
 
-- `scripts/patch_qwen3_tts_source.py`
+SpeechJudge requires a separate environment; see
+`recipe/qwen3_tts/SPEECHJUDGE_SETUP.md`.
+
+## SeedTTS Evaluation
+
+Generate Qwen3-TTS outputs for a SeedTTS `meta.lst` or JSONL on all visible
+GPUs:
+
+```bash
+QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
+MODEL_PATH="${MODEL_PATH}" \
+INPUT_JSONL=/path/to/seedtts/meta.lst \
+DEVICES=auto \
+OVERWRITE=1 \
+OUTPUT_DIR=results/qwen3_tts_seedtts \
+bash recipe/qwen3_tts/run_qwen3_tts_seedtts_eval_g8.sh
+```
+
+The input can be the official SeedTTS pipe format:
+
+```text
+filename|prompt_text|prompt_wav|target_text|ground_truth_wav
+```
+
+or JSONL with fields such as `sample_id`, `ref_text`, `ref_audio` or
+`ref_audio_path`, and `text` or `target_text`. The script writes generated
+audio to `OUTPUT_DIR/wav_res`, plus `manifest.jsonl`, `summary.json`,
+`meta.lst`, `wav_res_ref_text`, and `wav_res_ref_text.txt`. The generated
+`meta.lst` and `wav_res/` directory are compatible with the official
+`seed-tts-eval` `cal_wer.sh` / `cal_sim.sh` workflow.
+Set `OVERWRITE=1` only when replacing an existing output directory is intended.
+
+## Important Fixes
+
+The Qwen3-TTS train loss in this repo explicitly:
+
+- passes text embeddings through `talker.text_projection(...)` before adding
+  codec embeddings;
+- computes codec-0 CE from `outputs.logits` with `codec_0_labels[:, 1:]`
+  directly, avoiding the extra shift in Transformers causal LM loss;
+- uses `config.num_code_groups` instead of hard-coded `16`.
+
+These fixes are in both:
+
 - `recipe/qwen3_tts/grpo_trainer.py`
 - `verl/workers/engine/fsdp/transformer_impl.py`
+
+## More
+
+Detailed recipe notes are in `recipe/qwen3_tts/README.md`.
