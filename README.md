@@ -15,6 +15,18 @@ environment lives at `.venv`, and model weights live under `models/`.
 - WER/speaker-sim reward, plus optional SpeechJudge through a separate server.
 - FSDP checkpoint export to Qwen3-TTS `custom_voice` layout.
 
+## What Is In Git
+
+The repository includes the pieces needed to rebuild the working directory:
+
+- Qwen3-TTS source archive: `models/sources/Qwen3-TTS-source.tar.gz`.
+- Pinned runtime requirements: `requirements-qwen3tts-verl.txt`.
+- Setup/check/smoke scripts under `scripts/`.
+- Tiny smoke data under `data/smoke/`.
+
+Large model weights are not committed. Put them under
+`models/Qwen3-TTS-12Hz-1.7B-Base` or run setup with `DOWNLOAD_MODEL=1`.
+
 ## Install From A Clean Clone
 
 All paths below are relative to the repository root unless explicitly noted.
@@ -44,6 +56,24 @@ export MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base
 
 python scripts/check_qwen3_tts_env.py
 ```
+
+Generate and check the repo-local smoke data:
+
+```bash
+bash scripts/run_qwen3tts_smoke.sh
+```
+
+That command validates the installed environment and the uploaded tiny
+`data/smoke` files. To run 1-GPU SFT and GRPO smoke as well, use:
+
+```bash
+RUN_TRAINING=1 \
+MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
+SMOKE_DEVICE=cuda:0 \
+bash scripts/run_qwen3tts_smoke.sh
+```
+
+The training smoke requires local model weights and enough free GPU memory.
 
 The repository includes a small Qwen3-TTS source archive at
 `models/sources/Qwen3-TTS-source.tar.gz`. On machines where `git clone
@@ -153,7 +183,7 @@ cd "${VERL_REPO}"
 
 MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
 QWEN3_TTS_REPO=third_party/Qwen3-TTS \
-TRAIN_JSONL=data/train_with_codes.jsonl \
+TRAIN_JSONL=data/smoke/train_with_codes.jsonl \
 N_GPUS_PER_NODE=8 \
 TRAIN_BATCH_SIZE=8 \
 MICRO_BATCH_SIZE_PER_GPU=1 \
@@ -177,7 +207,7 @@ cd "${VERL_REPO}"
 
 MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
 QWEN3_TTS_REPO=third_party/Qwen3-TTS \
-TRAIN_JSONL=data/train_grpo.jsonl \
+TRAIN_JSONL=data/smoke/train_grpo.jsonl \
 OUTPUT_DIR=checkpoints/qwen3_tts_grpo_smoke \
 USE_RAY=0 \
 DEVICE=cuda:0 \
@@ -195,7 +225,7 @@ bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 ```bash
 MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
 QWEN3_TTS_REPO=third_party/Qwen3-TTS \
-TRAIN_JSONL=data/train_grpo.jsonl \
+TRAIN_JSONL=data/smoke/train_grpo.jsonl \
 ROLLOUT_DEVICES=auto \
 REWARD_ASR_BACKEND=none \
 REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
@@ -230,7 +260,7 @@ GPUs:
 ```bash
 QWEN3_TTS_REPO=third_party/Qwen3-TTS \
 MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base \
-INPUT_JSONL=data/seedtts/meta.lst \
+INPUT_JSONL=data/smoke/seedtts_meta.lst \
 DEVICES=auto \
 OVERWRITE=1 \
 OUTPUT_DIR=results/qwen3_tts_seedtts \

@@ -124,6 +124,9 @@ ENV/
 
 # data
 *.parquet
+/data/*
+!/data/smoke/
+!/data/smoke/**
 
 
 # local logs

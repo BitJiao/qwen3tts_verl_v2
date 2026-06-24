@@ -37,6 +37,15 @@ python scripts/check_qwen3_tts_env.py
 Set `DOWNLOAD_MODEL=1` when running the setup script if the Base checkpoint is
 not already available locally.
 
+Repo-local smoke data and environment checks:
+
+```bash
+bash scripts/run_qwen3tts_smoke.sh
+```
+
+Set `RUN_TRAINING=1` to also run 1-GPU SFT and GRPO smoke when model weights
+and free GPU memory are available.
+
 The setup script creates one shared `.venv` for Qwen3-TTS and verl. It pins the
 verified `torch==2.3.1`/`torchaudio==2.3.1` stack by default and installs the
 fully pinned runtime in `requirements-qwen3tts-verl.txt`, including
@@ -77,7 +86,7 @@ cd "${VERL_REPO}"
 
 MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=data/train_with_codes.jsonl \
+TRAIN_JSONL=data/smoke/train_with_codes.jsonl \
 N_GPUS_PER_NODE=8 \
 TRAIN_BATCH_SIZE=8 \
 MICRO_BATCH_SIZE_PER_GPU=1 \
@@ -94,7 +103,7 @@ python -m recipe.qwen3_tts.export_custom_voice \
   --base_model_dir "${MODEL_PATH}" \
   --output_dir exports/qwen3_tts_custom_voice \
   --speaker_name speaker_test \
-  --train_jsonl data/train_with_codes.jsonl \
+  --train_jsonl data/smoke/train_with_codes.jsonl \
   --overwrite
 ```
 
@@ -120,7 +129,7 @@ cd "${VERL_REPO}"
 
 MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=data/train_grpo.jsonl \
+TRAIN_JSONL=data/smoke/train_grpo.jsonl \
 OUTPUT_DIR=checkpoints/qwen3_tts_grpo_smoke \
 USE_RAY=0 \
 DEVICE=cuda:0 \
@@ -137,7 +146,7 @@ bash recipe/qwen3_tts/run_qwen3_tts_grpo.sh
 
 ```bash
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-TRAIN_JSONL=data/train_grpo.jsonl \
+TRAIN_JSONL=data/smoke/train_grpo.jsonl \
 ROLLOUT_DEVICES=auto \
 REWARD_ASR_BACKEND=none \
 REWARD_FN=recipe.qwen3_tts.wer_sim_reward:compute_score \
@@ -159,7 +168,7 @@ Generate SeedTTS-format audio on all visible GPUs:
 ```bash
 MODEL_PATH="${MODEL_PATH}" \
 QWEN3_TTS_REPO="${QWEN3_TTS_REPO}" \
-INPUT_JSONL=data/seedtts/meta.lst \
+INPUT_JSONL=data/smoke/seedtts_meta.lst \
 OUTPUT_DIR=results/qwen3_tts_seedtts \
 DEVICES=auto \
 OVERWRITE=1 \

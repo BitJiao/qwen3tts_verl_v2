@@ -1,0 +1,2 @@
+{"text": "hello world", "ref_audio": "data/smoke/ref.wav", "ref_text": "hello", "language": "en", "target_duration": 0.5}
+{"text": "a short smoke test", "ref_audio": "data/smoke/ref.wav", "ref_text": "hello", "language": "en", "target_duration": 0.5}
